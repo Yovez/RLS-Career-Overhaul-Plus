@@ -1,6 +1,6 @@
 # Fork notes
 
-This workspace is **RLS Career Overhaul Plus** — a plus-oriented fork of RLS Career Overhaul (QoL, routing, install workflow, and related fixes) that periodically merges from upstream.
+This workspace is **RLS Career Overhaul Plus** — an independent fork of RLS Career Overhaul. We expand systems and ship Plus-only changes for how we want to play; we periodically merge from upstream to stay near public RLS releases. This is **not** a contribution fork for landing work upstream.
 
 ## Remotes
 
