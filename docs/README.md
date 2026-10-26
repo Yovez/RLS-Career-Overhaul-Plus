@@ -1,6 +1,6 @@
 # Fork documentation
 
-Notes for **[RLS Career Overhaul Plus](https://github.com/Yovez/rls_career_overhaul_plus)**, an independent plus fork of [RLS Career Overhaul](https://github.com/RLS-Modding/rls_career_overhaul). Player-facing framing lives in the root [README](../README.md). Upstream licensing still applies; these files map Plus maintenance and system changes.
+Notes for **[RLS Career Overhaul Plus](https://github.com/Yovez/RLS-Career-Overhaul-Plus)**, an independent plus fork of [RLS Career Overhaul](https://github.com/RLS-Modding/rls_career_overhaul). Player-facing framing lives in the root [README](../README.md). Upstream licensing still applies; these files map Plus maintenance and system changes.
 
 | Doc | Purpose |
 |-----|---------|

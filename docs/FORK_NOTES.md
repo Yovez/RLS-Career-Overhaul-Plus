@@ -7,9 +7,10 @@ This workspace is **RLS Career Overhaul Plus**, an independent fork of RLS Caree
 | Remote | URL | Purpose |
 |--------|-----|---------|
 | `upstream` | `https://github.com/RLS-Modding/rls_career_overhaul.git` | Official public RLS repo |
-| `origin` | `https://github.com/Yovez/rls_career_overhaul_plus.git` | This Plus fork (publish here) |
+| `origin` | `https://github.com/Yovez/RLS-Career-Overhaul-Plus.git` | Plus (standalone publish repo, not in RLS fork network) |
+| `old-fork` | `https://github.com/Yovez/rls_career_overhaul_plus.git` | Previous GitHub fork (archive/redirect only) |
 
-Current branch: `main` (ahead of `upstream/main` with Plus commits). Browse: https://github.com/Yovez/rls_career_overhaul_plus
+Current branch: `main` (ahead of `upstream/main` with Plus commits). Browse: https://github.com/Yovez/RLS-Career-Overhaul-Plus
 
 ### Pushing to origin
 

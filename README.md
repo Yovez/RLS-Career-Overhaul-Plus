@@ -6,7 +6,7 @@ This project is **not** a contribution fork for upstream RLS. We maintain Plus o
 
 **Base:** RLS Career Overhaul **v2.8.0** · BeamNG.drive **0.40.x**
 
-[This repository](https://github.com/Yovez/rls_career_overhaul_plus) · [Upstream RLS](https://github.com/RLS-Modding/rls_career_overhaul) · [Plus changelog](docs/CHANGELOG_FORK.md) · [Fork notes](docs/FORK_NOTES.md)
+[This repository](https://github.com/Yovez/RLS-Career-Overhaul-Plus) · [Upstream RLS](https://github.com/RLS-Modding/rls_career_overhaul) · [Plus changelog](docs/CHANGELOG_FORK.md) · [Fork notes](docs/FORK_NOTES.md)
 
 ![RLS West Coast](ui/modules/whatsnew/2.8.0_public/west-coast.jpg)
 
@@ -62,7 +62,7 @@ Always back up saves before updating. Prefer one Overhaul content root at a time
 
 ## Help and bug reports
 
-- **Plus-only behaviour** (routing, phone parking brake, fork docs, and similar): open an issue on [Yovez/rls_career_overhaul_plus](https://github.com/Yovez/rls_career_overhaul_plus/issues).
+- **Plus-only behaviour** (routing, phone parking brake, fork docs, and similar): open an issue on [Yovez/RLS-Career-Overhaul-Plus](https://github.com/Yovez/RLS-Career-Overhaul-Plus/issues).
 - **Base Overhaul / map / save issues** that also happen without Plus changes: use [upstream troubleshooting](https://github.com/RLS-Modding/rls_career_overhaul/wiki/Troubleshooting) and [upstream issues](https://github.com/RLS-Modding/rls_career_overhaul/issues).
 
 Include BeamNG version, whether you are on Plus or stock RLS, map versions, new vs migrated save, steps to reproduce, and `beamng.log` when useful.

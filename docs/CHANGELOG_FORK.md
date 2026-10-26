@@ -1,6 +1,6 @@
 # Plus changelog
 
-Divergences in **RLS Career Overhaul Plus** (`Yovez/rls_career_overhaul_plus`) from upstream RLS Career Overhaul. Newest first.
+Divergences in **RLS Career Overhaul Plus** (`Yovez/RLS-Career-Overhaul-Plus`) from upstream RLS Career Overhaul. Newest first.
 
 ## Unreleased
 

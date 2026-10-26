@@ -5,7 +5,7 @@
 | Item | Value |
 |------|--------|
 | Upstream (RLS) | https://github.com/RLS-Modding/rls_career_overhaul |
-| This fork (Plus) | https://github.com/Yovez/rls_career_overhaul_plus |
+| This fork (Plus) | https://github.com/Yovez/RLS-Career-Overhaul-Plus |
 | Public version (shipped base) | **2.8.0** (`gameplay/overhaul/version.json`) |
 | Target game | BeamNG.drive **0.40.x** (`SUPPORTED_GAME_MINOR_VERSION = 40`) |
 | Approx. tree size | ~4.3 GB, ~5,095 files |
