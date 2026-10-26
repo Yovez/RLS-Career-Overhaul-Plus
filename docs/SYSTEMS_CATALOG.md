@@ -148,9 +148,9 @@ HUD: `ui/modModules/overhaulFreeroamRaceHud`, `overhaulFreSummary`. Level race d
 
 Shipped levels:
 
-- `levels/rls_west_coast/` — primary Overhaul map (terrain + sites + overhaul data)
-- `levels/west_coast_usa/overhaul/` — overlays for stock WCU
-- `levels/garage_v2/overhaul/` — garage level hooks
+- `levels/rls_west_coast/`: primary Overhaul map (terrain + sites + overhaul data)
+- `levels/west_coast_usa/overhaul/`: overlays for stock WCU
+- `levels/garage_v2/overhaul/`: garage level hooks
 
 ## Avatar & vehicle tooling
 
@@ -172,4 +172,4 @@ Shipped levels:
 
 ## Integration layer
 
-`integration/` — bridges to stock BeamNG services, owned services, taxi patches, vanilla service wrappers. Touch carefully; easy to break stock coexistence.
+`integration/`: bridges to stock BeamNG services, owned services, taxi patches, vanilla service wrappers. Touch carefully; easy to break stock coexistence.

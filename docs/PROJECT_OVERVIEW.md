@@ -1,6 +1,6 @@
 # Project overview
 
-**RLS Career Overhaul Plus** is a plus fork of **RLS Career Overhaul** — BeamNG.drive career mode with saves, economy, jobs, businesses, events, phone apps, and the **RLS West Coast** map — plus local QoL and systems work on top of upstream.
+**RLS Career Overhaul Plus** is a plus fork of **RLS Career Overhaul**: BeamNG.drive career mode with saves, economy, jobs, businesses, events, phone apps, and the **RLS West Coast** map, plus local QoL and systems work on top of upstream.
 
 | Item | Value |
 |------|--------|
@@ -42,15 +42,15 @@ There is **no separate Node build step** in-repo for shipping: BeamNG loads the 
 
 High level (see [SYSTEMS_CATALOG.md](SYSTEMS_CATALOG.md) for paths):
 
-- **Career shell** — own career mode, profiles, save/migration, pause home, wallet / logbook
-- **Work** — employment shifts, job broker, deliveries (parcel / materials / trailer / vehicle), bus, taxi, repo, police, ambulance, quarry, mining, facility work, Beam Eats, cleanup
-- **Businesses** — engine shop, tuning shop, racing team, passive businesses, fleet, skill tree, workshop computer
-- **Market** — dealerships, negotiation, marketplace, auctions, loans / credit / bank
-- **Garage / property** — inventory, storage, real estate, rentals, fast travel
-- **Parts / maintenance** — shopping, engines, dyno, tires, OBD, insurance / roadside repair
-- **Events** — freeroam racing (FRE), Dakar, derby, burnout, circuit / competitive track flow, car meets
-- **World** — RLS West Coast map, facilities, weather, organizations, dynamic routes
-- **Phone** — app shell for logistics, events, real estate, music, journal, etc.
+- **Career shell:** own career mode, profiles, save/migration, pause home, wallet / logbook
+- **Work:** employment shifts, job broker, deliveries (parcel / materials / trailer / vehicle), bus, taxi, repo, police, ambulance, quarry, mining, facility work, Beam Eats, cleanup
+- **Businesses:** engine shop, tuning shop, racing team, passive businesses, fleet, skill tree, workshop computer
+- **Market:** dealerships, negotiation, marketplace, auctions, loans / credit / bank
+- **Garage / property:** inventory, storage, real estate, rentals, fast travel
+- **Parts / maintenance:** shopping, engines, dyno, tires, OBD, insurance / roadside repair
+- **Events:** freeroam racing (FRE), Dakar, derby, burnout, circuit / competitive track flow, car meets
+- **World:** RLS West Coast map, facilities, weather, organizations, dynamic routes
+- **Phone:** app shell for logistics, events, real estate, music, journal, etc.
 
 ## Licensing (fork-relevant)
 

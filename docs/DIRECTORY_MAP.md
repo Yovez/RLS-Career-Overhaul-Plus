@@ -33,7 +33,7 @@ Root policy / legal (upstream-owned; keep when syncing):
 
 - `README.md`, `CONTRIBUTING.md`, `CREDITS.md`, `SECURITY.md`
 - `LICENSE`, `LICENSING.md`, `THIRD_PARTY_NOTICES.md`
-- `.github/` — issue / PR templates
+- `.github/`: issue / PR templates
 
 ## `gameplay/overhaul/` (content)
 

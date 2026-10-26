@@ -23,7 +23,7 @@ Game version gate: minor version **40** (0.40.x). Other minors log unsupported a
 
 ## Lua layers
 
-### 1. Game Engine (GE) extensions — `lua/ge/extensions/overhaul/`
+### 1. Game Engine (GE) extensions: `lua/ge/extensions/overhaul/`
 
 BeamNG extension modules (path → extension name: `overhaul/career/economy/bank` → `overhaul_career_economy_bank`).
 
@@ -42,17 +42,17 @@ BeamNG extension modules (path → extension name: `overhaul/career/economy/bank
 
 **Lib** (`lib/`) is large (~150 files): activity framework, ledger/finance, logistics helpers, save helpers, platform manifests, lifecycle scopes. Prefer fixing shared behavior here when multiple owners need it.
 
-### 2. Common — `lua/common/overhaul/`
+### 2. Common: `lua/common/overhaul/`
 
 Small shared set (units, tire model, vehicle roles, exact paths, maintenance part categories). Safe to `require` from GE or vehicle.
 
-### 3. Vehicle — `lua/vehicle/`
+### 3. Vehicle: `lua/vehicle/`
 
 Runs in the vehicle Lua VM:
 
-- `extensions/overhaul*.lua` — damage, fuel, tires, dyno, cargo, Yankem, maintenance, AI swap helpers
-- `overhaul/` — AI planning, maintenance managers, OBD, player controller seam
-- `controller/` — dyno ramp / player controller
+- `extensions/overhaul*.lua`: damage, fuel, tires, dyno, cargo, Yankem, maintenance, AI swap helpers
+- `overhaul/`: AI planning, maintenance managers, OBD, player controller seam
+- `controller/`: dyno ramp / player controller
 
 GE can push vehicle extensions when career / Overhaul is active (`applyCareerVehicleExtensions` on the shell).
 
@@ -79,7 +79,7 @@ Owners declare `scopes: [{ id, order }]`. The extension manager loads each scope
 4. Add gameplay JSON under `gameplay/overhaul/` for activities / capabilities / domain data as needed
 5. Wire UI in `ui/ui-vue/mods/rls_career_overhaul/` if the player sees screens
 
-## Gameplay data — `gameplay/overhaul/`
+## Gameplay data: `gameplay/overhaul/`
 
 Content and policy, not executable Lua. Important buckets:
 
@@ -119,22 +119,22 @@ Career UI is the bulk: bank, business computer, cargo, house, marketplace, phone
 
 ### Secondary: modModules (HUD / tools)
 
-`ui/modModules/` — celebration popup, dyno HUD, freeroam race HUD, FRE summary, overhaul manager, music player, Yankem.
+`ui/modModules/`: celebration popup, dyno HUD, freeroam race HUD, FRE summary, overhaul manager, music player, Yankem.
 
 ### Legacy / helpers
 
-- `ui/modules/overhaulAngular/` — small shared Angular helpers
-- `ui/modules/apps/` — in-game apps (tacho, tire wear, music, top-left)
-- `ui/modules/whatsnew/` — release splash assets
-- `ui/entrypoints/main/rls_career_overhaul/` — phone tile art / card-game assets
+- `ui/modules/overhaulAngular/`: small shared Angular helpers
+- `ui/modules/apps/`: in-game apps (tacho, tire wear, music, top-left)
+- `ui/modules/whatsnew/`: release splash assets
+- `ui/entrypoints/main/rls_career_overhaul/`: phone tile art / card-game assets
 
 ## Cross-cutting patterns
 
-- **Activities** — jobs/events often implement an activity interface + `gameplay/overhaul/activities/*.json`
-- **Employment** — shift work funnels through `career/work/employment*` with kind-specific modules
-- **Ledger / payment** — economy helpers under `career/economy` + `lib/ledger` / `lib/finance`
-- **Save** — `career/saveSystem.lua`, `saveMigration.lua`, plus `gameplay/overhaul/save/`
-- **Optional / soft load** — shell uses `optional()` wrappers so missing pieces do not hard-crash startup
+- **Activities**: jobs/events often implement an activity interface + `gameplay/overhaul/activities/*.json`
+- **Employment**: shift work funnels through `career/work/employment*` with kind-specific modules
+- **Ledger / payment**: economy helpers under `career/economy` + `lib/ledger` / `lib/finance`
+- **Save**: `career/saveSystem.lua`, `saveMigration.lua`, plus `gameplay/overhaul/save/`
+- **Optional / soft load**: shell uses `optional()` wrappers so missing pieces do not hard-crash startup
 
 ## Mental model for fixes
 

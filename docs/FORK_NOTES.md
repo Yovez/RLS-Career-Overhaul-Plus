@@ -1,6 +1,6 @@
 # Fork notes
 
-This workspace is **RLS Career Overhaul Plus** — an independent fork of RLS Career Overhaul. We expand systems and ship Plus-only changes for how we want to play; we periodically merge from upstream to stay near public RLS releases. This is **not** a contribution fork for landing work upstream.
+This workspace is **RLS Career Overhaul Plus**, an independent fork of RLS Career Overhaul. We expand systems and ship Plus-only changes for how we want to play. We periodically merge from upstream to stay near public RLS releases. This is **not** a contribution fork for landing work upstream.
 
 ## Remotes
 
@@ -79,7 +79,7 @@ Keep forks focused per change so upstream merges stay reviewable.
 
 1. Find the system in [SYSTEMS_CATALOG.md](SYSTEMS_CATALOG.md).
 2. Prefer data tweaks in `gameplay/overhaul/` when the knob already exists.
-3. Keep AGPL / bCDDL notices; update `licenses/RLS-AGPL-SCOPE.md` only when adding new original RLS-scoped files (upstream process — mirror if you redistribute).
+3. Keep AGPL / bCDDL notices; update `licenses/RLS-AGPL-SCOPE.md` only when adding new original RLS-scoped files (upstream process; mirror if you redistribute).
 4. Test: new career + migrated save if you touch economy or save paths.
 5. Log intentional divergences here or in a short `docs/CHANGELOG_FORK.md` when you start shipping meaningful differences (optional; create when needed).
 
