@@ -6,9 +6,11 @@
   <div
     class="app-icon-wrapper"
     role="button"
+    tabindex="0"
     :aria-label="app.name"
     :aria-disabled="tutorialBlocked || isDragGhost"
     bng-nav-item
+    v-bng-on-ui-nav:ok.asMouse.focusRequired
     :class="{
       jiggling: jiggleMode,
       dragging: isDragGhost,
@@ -56,6 +58,7 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { BngIcon } from '@/common/components/base'
+import { vBngOnUiNav } from '@/common/directives'
 import { useSkillsTheme } from '../../composables/useSkillsTheme'
 
 const props = defineProps({

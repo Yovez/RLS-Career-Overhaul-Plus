@@ -173,6 +173,7 @@ export function useBrokerScreen() {
     + Number(!!s.filter.subtype)
     + Number(!!s.filter.arrangement)
     + Number(!!s.filter.trailers.length)
+    + Number(!!(s.filter.mods || []).length)
     + Number(!!s.filter.pickupFac)
     + Number(!!s.filter.destFac)
     + Number(s.market === 'all' && !!s.filter.markets?.length))
@@ -535,6 +536,10 @@ export function useBrokerScreen() {
   watch(() => [s.selected, s.containers.length], () => { if (!container.value && s.containers.length) { const c = s.containers.find(x => Number(x.free) > 0) || s.containers[0]; if (c) container.value = c.key } })
   function toggleCar(key) { selectedCars.value = selectedCars.value.includes(key) ? selectedCars.value.filter(k => k !== key) : [...selectedCars.value, key] }
   function toggleTrailer(type) { s.updateFilter('trailers', s.filter.trailers.includes(type) ? s.filter.trailers.filter(v => v !== type) : [...s.filter.trailers, type]) }
+  function toggleMod(type) {
+    const selected = [...(s.filter.mods || [])]
+    s.updateFilter('mods', selected.includes(type) ? selected.filter(v => v !== type) : [...selected, type])
+  }
   watch(radiusPresets, presets => {
     const r = s.filter.radius
     if (!r || !presets.length) return
@@ -615,6 +620,6 @@ export function useBrokerScreen() {
     callModLua('overhaul_phone_apps_logistics.closeBrokerScreen').catch(() => {})
   })
 
-  return { back, startHere, isJobStack, stackExpanded, toggleJobStack, isLocked, accessReasons, requirementProgress, fitBadge, offerBadges, offerTimeLeft, jobTimeline, unlockHeading, levelReason, requirementText, stageHeading, groupsByPickup, pickupHeading, openRequirements, availableCount, lockedCount, focusView, screenRef, changeTab, ref, BngIcon, icons, groupedOfferCount, markets, RouteMap, s, route, openEmployment, listEl, jobsTab, container, selectedCars, confirmingAbandon, rowLimit, filtersOpen, rowImage, routePreview, routeLoading, planPreview, planLoading, renderedRows, containerLoading, containerError, cargoOptions, arrangementOptions, sortOptions, working, marketName, heading, activeJobs, visibleRows, selectedListRow, filterCount, trailerTypes, pickupLocationOptions, destLocationOptions, effectiveRadius, radiusDropdownItems, marketIcon, marketImage, loadCount, money, rate, dist, isMarketFilterActive, tableColumns, setColumnSort, columnSortActive, toggleMarketFilter, capacityText, fact, pct, payOf, detailFacts, legDistance, statusName, rememberScroll, closeDetail, select, refreshContainers, reserveAmount, reserveGroup, reserveMax, reserveSlots, stepReserve, reserveSelected, showLoader, slotsOf, pickupParcels, parcelBoxes, boxByKey, loadVehicle, boxIndex, boxCap, boxHeld, boxUse, boxLeft, canMove, share, boxLabel, autoSplit, cycleBox, pickupGroups, groupLoad, groupStuck, groupSplits, toggleGroup, stepGroup, loadParcels, loadStep, selectedJobIds, abandonFine, cancelReservation, abandon, collect, nextStep, toggleCar, toggleTrailer, isSaved, stopJob, openStop, refreshBroker }
+  return { back, startHere, isJobStack, stackExpanded, toggleJobStack, isLocked, accessReasons, requirementProgress, fitBadge, offerBadges, offerTimeLeft, jobTimeline, unlockHeading, levelReason, requirementText, stageHeading, groupsByPickup, pickupHeading, openRequirements, availableCount, lockedCount, focusView, screenRef, changeTab, ref, BngIcon, icons, groupedOfferCount, markets, RouteMap, s, route, openEmployment, listEl, jobsTab, container, selectedCars, confirmingAbandon, rowLimit, filtersOpen, rowImage, routePreview, routeLoading, planPreview, planLoading, renderedRows, containerLoading, containerError, cargoOptions, arrangementOptions, sortOptions, working, marketName, heading, activeJobs, visibleRows, selectedListRow, filterCount, trailerTypes, pickupLocationOptions, destLocationOptions, effectiveRadius, radiusDropdownItems, marketIcon, marketImage, loadCount, money, rate, dist, isMarketFilterActive, tableColumns, setColumnSort, columnSortActive, toggleMarketFilter, capacityText, fact, pct, payOf, detailFacts, legDistance, statusName, rememberScroll, closeDetail, select, refreshContainers, reserveAmount, reserveGroup, reserveMax, reserveSlots, stepReserve, reserveSelected, showLoader, slotsOf, pickupParcels, parcelBoxes, boxByKey, loadVehicle, boxIndex, boxCap, boxHeld, boxUse, boxLeft, canMove, share, boxLabel, autoSplit, cycleBox, pickupGroups, groupLoad, groupStuck, groupSplits, toggleGroup, stepGroup, loadParcels, loadStep, selectedJobIds, abandonFine, cancelReservation, abandon, collect, nextStep, toggleCar, toggleTrailer, toggleMod, isSaved, stopJob, openStop, refreshBroker }
 
 }

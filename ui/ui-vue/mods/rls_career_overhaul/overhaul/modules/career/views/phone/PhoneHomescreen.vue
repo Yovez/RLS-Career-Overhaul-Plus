@@ -132,7 +132,10 @@ import { useRouter } from 'vue-router'
 import { lua } from '@/bridge'
 import { useEvents } from '@/services/events'
 import { vBngOnUiNav } from '@/common/directives'
+import useControls from '@/services/controls'
+import { setFocus } from '@/services/uiNavFocus'
 import { usePhoneScreen } from '../../composables/usePhoneScreen'
+import { usePhoneViewFocus } from '../../components/phone/usePhoneViewFocus.js'
 import PhoneAppIcon from '../../components/phone/PhoneAppIcon.vue'
 import PhoneDock from '../../components/phone/PhoneDock.vue'
 import PhoneSearch from '../../components/phone/PhoneSearch.vue'
@@ -1045,6 +1048,18 @@ if (shellState?.layout && isPhoneAppCatalogLoaded()) {
   applyLayout(shellState.layout)
 }
 
+async function focusHomescreenEntry() {
+  await nextTick()
+  if (disposed || !useControls().isControllerUsed) return
+  const root = homescreenRef.value
+  if (!root) return
+  const icons = [...root.querySelectorAll('[data-app-id][bng-nav-item], [data-app-id].app-icon-wrapper')].filter(el =>
+    !el.closest('[inert], [hidden]') && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden')
+  if (icons[0]) setFocus(icons[0])
+}
+
+usePhoneViewFocus(homescreenRef, () => `home:${currentPageIndex.value}:${isSearchPageActive.value ? 'search' : 'grid'}`)
+
 onMounted(async () => {
   events.on('phoneLayoutData', onPhoneLayoutData)
   events.on('phoneShellState', onPhoneShellState)
@@ -1072,10 +1087,12 @@ onMounted(async () => {
     }
   }
 
+  await focusHomescreenEntry()
 })
 
 onActivated(() => {
   initPhone()
+  focusHomescreenEntry()
   if (readPhoneShellState()?.layout) return
   try {
     lua.overhaul_phone_apps_layout?.requestLayout?.()

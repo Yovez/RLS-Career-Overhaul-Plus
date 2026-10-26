@@ -65,17 +65,49 @@ function M.chooseDepot(facilities)
   return ranked[1] and ranked[1].fac
 end
 
--- A stop order is valid when every stop has a unique id and each delivery follows its pickup.
+local function stopJobIds(stop)
+  local ids = {}
+  if type(stop.jobIds) == "table" then
+    for jobId, on in pairs(stop.jobIds) do
+      if on then ids[#ids + 1] = jobId end
+    end
+  elseif stop.jobId then
+    ids[1] = stop.jobId
+  end
+  return ids
+end
+
+-- Unique stop ids; a delivery is allowed once any of its jobs has been picked up (merged pins).
+-- Jobs with no pickup pin left in the list are already loaded — pruneStaleStops drops those
+-- pickups, so delivery-only routes (in-transit freight) must still validate or optimizeStops never runs.
 function M.validStopOrder(stops)
-  local picked, seen = {}, {}
+  local picked, seen, hasPickup = {}, {}, {}
+  for _, stop in ipairs(stops or {}) do
+    if stop.kind == "pickup" then
+      for _, id in ipairs(stopJobIds(stop)) do hasPickup[id] = true end
+    end
+  end
   for _, stop in ipairs(stops or {}) do
     if type(stop.id) ~= "string" or seen[stop.id] then return false end
     seen[stop.id] = true
+    local ids = stopJobIds(stop)
     if stop.kind == "pickup" then
-      picked[stop.jobId] = true
-    elseif stop.kind ~= "delivery" or not (picked[stop.jobId] or stop.collected) then
+      for _, id in ipairs(ids) do picked[id] = true end
+    elseif stop.kind == "delivery" then
+      if stop.collected then goto continue end
+      local ready = false
+      for _, id in ipairs(ids) do
+        -- Prior pickup in this order, or already on the truck (no pickup stop remaining).
+        if picked[id] or not hasPickup[id] then
+          ready = true
+          break
+        end
+      end
+      if not ready then return false end
+    else
       return false
     end
+    ::continue::
   end
   return true
 end

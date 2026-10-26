@@ -21,12 +21,52 @@ export const defaults = () => ({
   sort: 'near',
   radius: 0,
   trailers: [],
+  mods: [],
   subtype: '',
   arrangement: '',
   markets: [],
   pickupFac: '',
   destFac: '',
 })
+
+/** Player-facing parcel modifier chips in Job Broker filters. */
+export const DELIVERY_MOD_FILTERS = [
+  { id: 'timed', label: 'Timed' },
+  { id: 'post', label: 'Post' },
+  { id: 'precious', label: 'Precious' },
+  { id: 'large', label: 'Large' },
+  { id: 'hazardous', label: 'Hazardous' },
+  { id: 'fluid', label: 'Fluid' },
+  { id: 'dryBulk', label: 'Dry bulk' },
+  { id: 'supplies', label: 'Supplies' },
+  { id: 'plain', label: 'Plain' },
+]
+
+const VISIBLE_MOD_IDS = new Set(DELIVERY_MOD_FILTERS.map(m => m.id).filter(id => id !== 'plain'))
+
+function offerModTypes(row) {
+  const types = new Set()
+  for (const mod of Object.values(row.modifiers || {})) {
+    if (mod?.type) types.add(mod.type)
+  }
+  if (row.timed) types.add('timed')
+  if (row.fragile) types.add('precious')
+  return types
+}
+
+function matchesModFilter(row, mods) {
+  if (!mods?.length) return true
+  const types = offerModTypes(row)
+  const hasVisible = [...types].some(type => VISIBLE_MOD_IDS.has(type))
+  for (const mod of mods) {
+    if (mod === 'plain') {
+      if (!hasVisible) return true
+    } else if (types.has(mod)) {
+      return true
+    }
+  }
+  return false
+}
 
 function cargoSortKey(row) {
   return row.trailerType || `${Number(row.quantity || 0)} ${row.unit || ''}`
@@ -53,6 +93,7 @@ function compareRows(a, b, sort) {
 export function filterOffers(rows, market, filters, scope) {
   const query = filters.search.toLocaleLowerCase()
   const marketTypes = filters.markets?.length ? filters.markets : null
+  const mods = Object.values(filters.mods || {})
   return rows.filter(row => (market === 'all' || row.market === market)
     && (!marketTypes || marketTypes.includes(row.market))
     && (!scope || row.origin?.facId === scope)
@@ -62,6 +103,7 @@ export function filterOffers(rows, market, filters, scope) {
     && (!filters.subtype || row.subtype === filters.subtype)
     && (!filters.arrangement || row.arrangement === filters.arrangement)
     && (!filters.trailers.length || filters.trailers.includes(row.trailerType))
+    && matchesModFilter(row, mods)
     && (!query || [row.title, row.from, row.to, row.trailerType].some(v => String(v || '').toLocaleLowerCase().includes(query))))
     .sort((a, b) => compareRows(a, b, filters.sort) || String(a.id).localeCompare(String(b.id)))
 }
@@ -169,7 +211,7 @@ export const usePhoneBrokerStore = defineStore('overhaulPhoneBroker', () => {
   const availability = ref('available')
   // resultCount restarts the message timer when the same message repeats.
   const scope = ref(''), message = ref(''), resultCount = ref(0), pending = ref(false), loaded = ref(false), containers = ref([])
-  const preferences = reactive({ last: null, filters: {} })
+  const preferences = reactive({ last: null, filters: {}, autoApplyGps: false, autoOpenBrokerOnDelivery: false })
   const scrolls = reactive({})
   const filter = computed(() => preferences.filters[market.value] || defaults())
   const rows = computed(() => filterOffers(data.value.offers || [], market.value, filter.value, scope.value))
@@ -220,9 +262,12 @@ export const usePhoneBrokerStore = defineStore('overhaulPhoneBroker', () => {
     if (!preferencesLoaded) {
       preferences.last = payload.preferences?.last || null
       preferences.filters = payload.preferences?.filters || {}
+      preferences.autoApplyGps = !!payload.preferences?.autoApplyGps
+      preferences.autoOpenBrokerOnDelivery = !!payload.preferences?.autoOpenBrokerOnDelivery
       for (const f of Object.values(preferences.filters)) {
         f.trailers = Object.values(f.trailers || {})
         f.markets = Object.values(f.markets || {})
+        f.mods = Object.values(f.mods || {})
       }
       preferencesLoaded = true
     }
@@ -290,5 +335,5 @@ export const usePhoneBrokerStore = defineStore('overhaulPhoneBroker', () => {
     releaseRequest(result)
   }
   return { data, availability, view, market, selected, expanded, scope, message, resultCount, pending, loaded, containers, preferences, scrolls,
-    filter, rows, selectedRow, receive, refresh, action, chooseMarket, updateFilter, resetFilters, receiveResult, rehydrate }
+    filter, rows, selectedRow, receive, refresh, action, chooseMarket, updateFilter, resetFilters, savePreferences, receiveResult, rehydrate }
 })

@@ -24,7 +24,7 @@
         class="search-result-item"
         @pointerdown="onResultPointerDown($event, app)"
         @click="onResultClick(app)"
-       role="button" tabindex="0" bng-nav-item :aria-label="app.name" :data-app-id="app.id">
+       role="button" tabindex="0" bng-nav-item v-bng-on-ui-nav:ok.asMouse.focusRequired :aria-label="app.name" :data-app-id="app.id">
         <div class="search-result-icon" :style="{ backgroundColor: hasCustomImage(app) ? 'transparent' : app.color }">
           <img
             v-if="hasCustomImage(app)"
@@ -52,7 +52,7 @@
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
 import { BngIcon } from '@/common/components/base'
-import { vBngTextInput } from '@/common/directives'
+import { vBngOnUiNav, vBngTextInput } from '@/common/directives'
 
 const props = defineProps({
   apps: { type: Array, required: true },

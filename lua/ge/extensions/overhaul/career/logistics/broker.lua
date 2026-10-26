@@ -34,6 +34,7 @@ local routeCache, routeCacheMap, routeCacheSize = {}, nil, 0
 local offerCache, jobCache = viewCache.new(), viewCache.new()
 local offerFacilities
 local restoreTimer = 0
+local resumeRoutePending, resumeRouteDelay = false, 0
 local presenceWatcher = presence.newWatcher()
 local rentalRouteId
 local freightRouteJobs, freightRouteIsPlan = {}, false
@@ -369,6 +370,9 @@ local function refreshPois()
   general().requestDeliveryPoiRefresh(true)
 end
 
+-- Forward declarations: collect finish hooks prune/auto-route defined with the stop helpers.
+local pruneStaleStops, maybeAutoApplyRoute, afterCollectionRoute, removeJobFromStops
+
 local function collect(callback, run)
   setBusy()
   local token, completed = busyToken, false
@@ -380,6 +384,8 @@ local function collect(callback, run)
     if not updated then
       log("E", "broker", tostring(reason))
       ok, message = false, "Collection could not finish. Check your loads before retrying."
+    elseif ok then
+      afterCollectionRoute()
     end
     if callback then callback(ok, message) end
   end
@@ -500,20 +506,204 @@ local function cancelReservationForTravel(id)
   local ok, msg = kinds.forKind(job.kind).release(brokerServices, job)
   if not ok then return false, msg end
   state.jobs[id] = nil
-  for i = #state.stops, 1, -1 do
-    if state.stops[i].jobId == id then table.remove(state.stops, i) end
-  end
+  removeJobFromStops(id)
   refreshPois()
   return true
 end
 
+-- True while the load still needs a collection stop (mirrors Job Broker next-step logic).
+local function needsPickupStop(row)
+  if type(row) ~= "table" then return false end
+  if not row.status then return true end
+  if row.status == "complete" or row.status == "cancelled" then return false end
+  if row.kind == "cars" then
+    local pending, staged, count = 0, 0, 0
+    for _, car in pairs(row.vehicles or {}) do
+      if type(car) == "table" then
+        count = count + 1
+        if not car.status or car.status == "pending" then
+          pending = pending + 1
+        elseif car.status == "staged" then
+          staged = staged + 1
+        end
+      end
+    end
+    return staged == 0 and (pending > 0 or count == 0)
+  end
+  if row.kind == "trailer" then return row.status == "reserved" end
+  if row.status == "reserved" then return true end
+  local inTransit = tonumber(row.inTransit) or 0
+  local remaining = tonumber(row.remaining) or 0
+  return inTransit <= 0 and remaining > 0
+end
+
+local function stopJobRow(jobId)
+  return state.jobs[jobId] or state.plans[jobId] or offers[jobId]
+end
+
+-- Same facility spot (or same map position) collapses to one GPS / route-plan row.
+local function locationKey(loc)
+  if type(loc) ~= "table" then return nil end
+  if loc.type == "facilityParkingspot" then
+    return string.format("fps|%s|%s", tostring(loc.facId), tostring(loc.psPath))
+  end
+  if loc.type == "multi" then
+    local parts = {}
+    for _, dest in ipairs(loc.destinations or {}) do
+      parts[#parts + 1] = locationKey(dest) or "?"
+    end
+    table.sort(parts)
+    return "multi|" .. table.concat(parts, ";")
+  end
+  local pos = position(loc)
+  if pos then return string.format("pos|%.0f|%.0f|%.0f", pos.x, pos.y, pos.z) end
+  return nil
+end
+
+local function stopIncludesJob(stop, jobId)
+  if stop.jobId == jobId then return true end
+  return type(stop.jobIds) == "table" and stop.jobIds[jobId] == true
+end
+
+local function addJobToStop(stop, jobId)
+  stop.jobIds = stop.jobIds or {}
+  if stop.jobId then stop.jobIds[stop.jobId] = true end
+  stop.jobIds[jobId] = true
+  stop.jobId = jobId
+end
+
+local function stopJobIds(stop)
+  local ids = {}
+  if type(stop.jobIds) == "table" then
+    for jobId, on in pairs(stop.jobIds) do
+      if on then ids[#ids + 1] = jobId end
+    end
+  elseif stop.jobId then
+    ids[1] = stop.jobId
+  end
+  return ids
+end
+
+-- Merge jobs that share a pickup/delivery spot so 9x identical parcels are one stop.
+local function addRouteStop(kind, jobId, location, name)
+  if not location then return false end
+  local key = locationKey(location)
+  if key then
+    for _, stop in ipairs(state.stops) do
+      if stop.kind == kind and locationKey(stop.location) == key then
+        if not stopIncludesJob(stop, jobId) then addJobToStop(stop, jobId) end
+        return false
+      end
+    end
+  end
+  state.stops[#state.stops + 1] = {
+    id = nextId("stop"),
+    jobId = jobId,
+    jobIds = { [jobId] = true },
+    kind = kind,
+    location = deepcopy(location),
+    name = name,
+  }
+  return true
+end
+
+function removeJobFromStops(jobId)
+  local changed = false
+  for i = #state.stops, 1, -1 do
+    local stop = state.stops[i]
+    if stopIncludesJob(stop, jobId) then
+      if type(stop.jobIds) == "table" then stop.jobIds[jobId] = nil end
+      local remaining = {}
+      for _, id in ipairs(stopJobIds(stop)) do
+        if id ~= jobId then remaining[#remaining + 1] = id end
+      end
+      if not remaining[1] then
+        table.remove(state.stops, i)
+      else
+        local kept = {}
+        for _, id in ipairs(remaining) do kept[id] = true end
+        stop.jobIds = kept
+        stop.jobId = remaining[1]
+      end
+      changed = true
+    end
+  end
+  return changed
+end
+
+-- Drop dead jobs and pickup stops that are already collected so GPS never revisits them.
+function pruneStaleStops()
+  local changed = false
+  for i = #state.stops, 1, -1 do
+    local stop = state.stops[i]
+    local kept, primary = {}, nil
+    for _, jobId in ipairs(stopJobIds(stop)) do
+      local row = stopJobRow(jobId)
+      if row and row.status ~= "complete" and row.status ~= "cancelled" then
+        if stop.kind ~= "pickup" or needsPickupStop(row) then
+          kept[jobId] = true
+          primary = primary or jobId
+        end
+      end
+    end
+    if not primary then
+      table.remove(state.stops, i)
+      changed = true
+    else
+      stop.jobIds = kept
+      stop.jobId = primary
+    end
+  end
+  return changed
+end
+
 local function stopPoints()
+  pruneStaleStops()
   local pts = {}
   for _, stop in ipairs(state.stops) do
     local pos = position(stop.location)
     if pos then pts[#pts + 1] = { stop = stop, pos = pos } end
   end
   return pts
+end
+
+function maybeAutoApplyRoute()
+  if state.preferences and state.preferences.autoApplyGps == true then
+    M.autoRoute()
+  end
+end
+
+-- After any logistics load is collected, ensure its delivery stop(s) are on the planned route.
+local function ensureLoadedJobDeliveries()
+  local added = false
+  for id, job in pairs(state.jobs) do
+    if job.map == mapId() and job.status == "active" and not needsPickupStop(job) then
+      if not state.plans[id] then
+        local plan = deepcopy(job)
+        plan.id = id
+        plan.offerId = job.offerId or id
+        state.plans[id] = plan
+      end
+      local destinations = kinds.forKind(job.kind).destinations(job)
+      if not destinations[1] then destinations = { job.destination } end
+      for _, loc in ipairs(destinations) do
+        if addRouteStop("delivery", id, loc, locationName(loc)) then added = true end
+      end
+    end
+  end
+  return added
+end
+
+-- Collection always folds deliveries into the route, sorts, and sets GPS (parcels, trailers, cars, materials, …).
+function afterCollectionRoute()
+  local added = ensureLoadedJobDeliveries()
+  pruneStaleStops()
+  local hasFreightStop = #state.stops > 0
+  if added or hasFreightStop then
+    M.autoRoute()
+  else
+    maybeAutoApplyRoute()
+  end
 end
 -- polyline along the roads between two points, for the phone's route map
 local function routePolyline(a, b)
@@ -720,6 +910,15 @@ local function commitBatch(plan, finish)
   end))
 end
 
+-- After save load / cargo restore: rebuild deliveries if needed and apply GPS.
+local function tryResumeFreightRoute()
+  if employed() then return true end
+  if not playerPosition() then return false end
+  syncJobs()
+  afterCollectionRoute()
+  return true
+end
+
 -- Per-frame update --------------------------------------------------------------------------------
 function M.onUpdate(dtReal)
   if not overhaul_career_career or not overhaul_career_career.isActive() then return end
@@ -733,8 +932,21 @@ function M.onUpdate(dtReal)
   restoreTimer = restoreTimer + (dtReal or 0)
   if restoreTimer < 1 then return end
   restoreTimer = 0
-  if next(pendingRestore.cargo or {}) or next(pendingRestore.tasks or {}) then
+  local stillRestoring = next(pendingRestore.cargo or {}) or next(pendingRestore.tasks or {})
+  if stillRestoring then
     persistence.restore(pendingRestore, state.jobs)
+    stillRestoring = next(pendingRestore.cargo or {}) or next(pendingRestore.tasks or {})
+  end
+  if resumeRoutePending then
+    resumeRouteDelay = resumeRouteDelay + 1
+    -- Wait until in-transit freight is back on vehicles and the player exists, then auto-route.
+    if not stillRestoring and resumeRouteDelay >= 2 and tryResumeFreightRoute() then
+      resumeRoutePending = false
+      resumeRouteDelay = 0
+    elseif resumeRouteDelay > 30 then
+      resumeRoutePending = false
+      resumeRouteDelay = 0
+    end
   end
 end
 
@@ -766,11 +978,7 @@ local function pruneFinishedJobs()
   for i = FINISHED_JOB_KEEP + 1, #finished do
     local id = finished[i].id
     state.jobs[id] = nil
-    if type(state.stops) == "table" then
-      for j = #state.stops, 1, -1 do
-        if state.stops[j].jobId == id then table.remove(state.stops, j) end
-      end
-    end
+    if type(state.stops) == "table" then removeJobFromStops(id) end
   end
 end
 
@@ -797,6 +1005,7 @@ function M.setup(saved)
   collectionFailed = nil
   presenceWatcher.reset()
   restoreTimer = 0
+  resumeRoutePending, resumeRouteDelay = true, 0
   pendingRestore = state.inTransit or { cargo = {}, tasks = {} }
   state.inTransit = nil
   if vehicles() and vehicles().getAllOfferCustomFilter then
@@ -813,8 +1022,37 @@ function M.setup(saved)
 end
 
 -- Public API: status ------------------------------------------------------------------------------
-function M.setOpenContext(facility, atDepot, tab, select)
+function M.setOpenContext(facility, atDepot, tab, select, opts)
   openContext = { facility = facility, depot = atDepot, tab = tab, select = select }
+  if type(opts) == "table" then
+    for key, value in pairs(opts) do openContext[key] = value end
+  end
+end
+
+-- After rewards close: open Job Broker at this facility when unlocked loads are waiting (preference).
+function M.tryOpenBrokerAfterDelivery(facId)
+  if not facId then return false end
+  if not (state.preferences and state.preferences.autoOpenBrokerOnDelivery == true) then return false end
+  if employed() then return false end
+  M.refreshOffers()
+  local marketsHere = {}
+  local firstMarket = nil
+  for _, row in pairs(offers) do
+    if row.unlocked and row.origin and row.origin.facId == facId and row.market then
+      marketsHere[row.market] = true
+      firstMarket = firstMarket or row.market
+    end
+  end
+  if not firstMarket then return false end
+  local marketCount = 0
+  for _ in pairs(marketsHere) do marketCount = marketCount + 1 end
+  M.setOpenContext(facId, M.isAtLoanerFacility(facId), nil, nil, {
+    market = marketCount > 1 and "all" or firstMarket,
+    view = "loads",
+    expanded = true,
+  })
+  guihooks.trigger("ChangeState", { state = "phone-logistics" })
+  return true
 end
 
 local function fitCandidates(yieldWork)
@@ -861,6 +1099,7 @@ end
 
 function M.getState(yieldWork)
   syncJobs()
+  pruneStaleStops()
   M.refreshOffers(yieldWork)
   local bonus = levelBonus()
   local list = {}
@@ -1024,7 +1263,15 @@ function M.reserve(id, signature, keepOffers)
     return false, "This saved offer has changed. Choose a current load from the market."
   end
   local job = deepcopy(row)
-  job.access, job.offerExpiresAt, job.modifiers = nil, nil, nil
+  job.access, job.offerExpiresAt = nil, nil
+  -- Keep timed/fragile modifier clocks for route urgency; drop other offer-only fields.
+  local keptMods = {}
+  for _, modifier in ipairs(job.modifiers or {}) do
+    if modifier.type == "timed" or modifier.type == "fragile" then
+      keptMods[#keptMods + 1] = modifier
+    end
+  end
+  job.modifiers = keptMods[1] and keptMods or nil
   job.id = nextId("job")
   job.offerId = id
   job.status = "reserved"
@@ -1035,7 +1282,14 @@ function M.reserve(id, signature, keepOffers)
   for key, p in pairs(state.plans) do
     if key == id or (p.offerId == id and p.signature == row.signature) then
       for _, stop in ipairs(state.stops) do
-        if stop.jobId == key then stop.jobId = job.id end
+        if stopIncludesJob(stop, key) then
+          if type(stop.jobIds) == "table" then
+            stop.jobIds[key] = nil
+            stop.jobIds[job.id] = true
+          end
+          if stop.jobId == key then stop.jobId = job.id end
+          addJobToStop(stop, job.id)
+        end
       end
       remapFreightRouteJob(key, job.id)
       state.plans[key] = nil
@@ -1055,9 +1309,7 @@ function M.cancel(id)
   local ok, msg = kinds.forKind(job.kind).release(brokerServices, job)
   if not ok then return false, msg end
   state.jobs[id] = nil
-  for i = #state.stops, 1, -1 do
-    if state.stops[i].jobId == id then table.remove(state.stops, i) end
-  end
+  removeJobFromStops(id)
   refreshPois()
   clearFreightRoute(id)
   return true, "Reservation cancelled."
@@ -1139,7 +1391,7 @@ function M.navigate(id, leg, stopId)
   local loc = leg == "delivery" and item.destination or item.origin
   if stopId then
     for _, stop in ipairs(state.stops) do
-      if stop.id == stopId and stop.jobId == id then
+      if stop.id == stopId and stopIncludesJob(stop, id) then
         loc = stop.location or loc
         break
       end
@@ -1160,9 +1412,7 @@ function M.plan(id)
   end
   if state.plans[id] then
     state.plans[id] = nil
-    for i = #state.stops, 1, -1 do
-      if state.stops[i].jobId == id then table.remove(state.stops, i) end
-    end
+    removeJobFromStops(id)
     clearFreightRoute(id)
     return true, "Plan removed."
   end
@@ -1174,13 +1424,13 @@ function M.plan(id)
   state.plans[id].id = id
   state.plans[id].offerId = originalId
   remapFreightRouteJob(originalId, id)
-  state.stops[#state.stops + 1] =
-    { id = nextId("stop"), jobId = id, kind = "pickup", location = deepcopy(row.origin), name = row.from }
+  if needsPickupStop(row) then
+    addRouteStop("pickup", id, row.origin, row.from)
+  end
   local destinations = kinds.forKind(row.kind).destinations(row)
   if not destinations[1] then destinations = { row.destination } end
   for _, loc in ipairs(destinations) do
-    state.stops[#state.stops + 1] =
-      { id = nextId("stop"), jobId = id, kind = "delivery", location = deepcopy(loc), name = locationName(loc) }
+    addRouteStop("delivery", id, loc, locationName(loc))
   end
   return true, "Added to route."
 end
@@ -1221,6 +1471,14 @@ function M.showRoute()
   return true, string.format("Route set through %d stop%s.", #list, #list == 1 and "" or "s")
 end
 
+-- Prune obsolete pickups, timed-first nearest-neighbor order, then apply GPS waypoints.
+function M.autoRoute()
+  pruneStaleStops()
+  if #state.stops == 0 then return false, "No remaining stops to route." end
+  if #state.stops >= 2 then M.optimizeStops() end
+  return M.showRoute()
+end
+
 -- Same call as cancelling on the big map: it drops the markers, the big-map focus and, in delivery mode, the
 -- automatic route that would otherwise draw them again.
 function M.clearRoute()
@@ -1229,48 +1487,151 @@ function M.clearRoute()
   return true, "Route cleared."
 end
 
-function M.optimizeStops()
-  if #state.stops < 2 then return false, "Add more stops to order them." end
-  local remaining, ordered, cur = deepcopy(state.stops), {}, playerPosition()
+-- True when at least one job on this delivery can be dropped now (loaded, or its pickup is already done).
+local function deliveryStopReady(stop, remaining)
+  for _, jobId in ipairs(stopJobIds(stop)) do
+    local row = stopJobRow(jobId)
+    if row and not needsPickupStop(row) then return true end
+    local pickupPending = false
+    for _, o in ipairs(remaining) do
+      if o.kind == "pickup" and stopIncludesJob(o, jobId) then
+        pickupPending = true
+        break
+      end
+    end
+    if not pickupPending then return true end
+  end
+  return false
+end
+
+local function jobHasTimedModifier(row)
+  if not row then return false end
+  if row.timed then return true end
+  for _, modifier in ipairs(row.modifiers or {}) do
+    if modifier.type == "timed" then return true end
+  end
+  return false
+end
+
+local function cargoTimedRemaining(jobId)
+  local parcelManager = parcels()
+  if not parcelManager or not parcelManager.getAllCargoCustomFilter then return nil end
+  local clock = now()
+  local best = nil
+  for _, cargo in ipairs(parcelManager.getAllCargoCustomFilter(function(item)
+    return item.data and item.data.brokerId == jobId
+  end) or {}) do
+    local loadedAt = cargo.loadedAtTimeStamp
+    for _, mod in ipairs(cargo.modifiers or {}) do
+      if mod.type == "timed" then
+        local untilLate = tonumber(mod.timeUntilLate) or tonumber(mod.timeUntilDelayed)
+        if untilLate and loadedAt then
+          local left = untilLate - (clock - loadedAt)
+          if not best or left < best then best = left end
+        end
+      end
+    end
+  end
+  return best
+end
+
+local function jobTimedRemaining(jobId)
+  local fromCargo = cargoTimedRemaining(jobId)
+  if fromCargo ~= nil then return fromCargo end
+  local row = stopJobRow(jobId)
+  if not jobHasTimedModifier(row) then return nil end
+  for _, mod in ipairs(row.modifiers or {}) do
+    if mod.type == "timed" then
+      return tonumber(mod.timeUntilLate) or tonumber(mod.timeUntilDelayed) or 3600
+    end
+  end
+  return 3600
+end
+
+local function jobIsTimed(jobId)
+  if jobTimedRemaining(jobId) ~= nil then return true end
+  return jobHasTimedModifier(stopJobRow(jobId))
+end
+
+local function stopIsTimed(stop)
+  for _, jobId in ipairs(stopJobIds(stop)) do
+    if jobIsTimed(jobId) then return true end
+  end
+  return false
+end
+
+-- Seconds until the soonest timed late threshold on this stop (lower = more urgent).
+local function stopTimedUrgency(stop)
+  local best = nil
+  for _, jobId in ipairs(stopJobIds(stop)) do
+    local left = jobTimedRemaining(jobId)
+    if left ~= nil and (not best or left < best) then best = left end
+  end
+  return best
+end
+
+-- Soft bias so a ready drop across the street beats another pickup a bit farther away.
+local PICKUP_DISTANCE_BIAS_M = 250
+-- Timed urgency folded into metres: ~0.5 m per second left (~300 m for a 10 min window).
+local TIMED_URGENCY_M_PER_S = 0.5
+
+-- Greedy order for one priority band (timed or not). Mutates remaining/ordered; returns new cursor.
+local function orderStopBand(remaining, ordered, cur, timedBand)
   while #remaining > 0 do
-    local bestI, bestD = nil, nil
+    local bestI, bestScore = nil, nil
     for i, stop in ipairs(remaining) do
-      local blocked = false
-      if stop.kind == "delivery" then
-        for _, o in ipairs(remaining) do
-          if o ~= stop and o.jobId == stop.jobId and o.kind == "pickup" then
-            blocked = true
-            break
-          end
-        end
+      if stopIsTimed(stop) ~= timedBand then goto continue end
+      if stop.kind == "delivery" and not deliveryStopReady(stop, remaining) then goto continue end
+      local pos = position(stop.location)
+      local d = pos and distance(cur, pos) or math.huge
+      local score = d + (stop.kind == "pickup" and PICKUP_DISTANCE_BIAS_M or 0)
+      if timedBand then
+        local urgency = stopTimedUrgency(stop)
+        if urgency ~= nil then score = score + math.max(0, urgency) * TIMED_URGENCY_M_PER_S end
       end
-      if not blocked then
-        local pos = position(stop.location)
-        local d = pos and distance(cur, pos) or math.huge
-        if not bestD or d < bestD then
-          bestI, bestD = i, d
-        end
+      if not bestScore or score < bestScore then
+        bestI, bestScore = i, score
       end
+      ::continue::
     end
     if not bestI then break end
     local stop = table.remove(remaining, bestI)
     ordered[#ordered + 1] = stop
     cur = position(stop.location) or cur
   end
+  return cur
+end
+
+function M.optimizeStops()
+  pruneStaleStops()
+  if #state.stops < 2 then return false, "Add more stops to order them." end
+  local remaining, ordered, cur = deepcopy(state.stops), {}, playerPosition()
+  -- Timed loads first (best road order within that set), then everything else.
+  cur = orderStopBand(remaining, ordered, cur, true)
+  cur = orderStopBand(remaining, ordered, cur, false)
   for _, stop in ipairs(remaining) do
     ordered[#ordered + 1] = stop
   end
   if not rules.validStopOrder(ordered) then return false, "Could not order the stops." end
   state.stops = ordered
-  return true, "Stops ordered by shortest drive."
+  return true, "Stops ordered by timed priority and shortest drive."
 end
 
 function M.routePreview(id)
   local item = state.jobs[id] or offers[id] or state.plans[id]
   if not item or item.map ~= mapId() then return nil end
-  local a, b = position(item.origin), position(item.destination)
-  if not a or not b then return nil end
   local me = playerPosition()
+  local b = position(item.destination)
+  if not b then return nil end
+  if not needsPickupStop(item) then
+    local path, dist = routePolyline(me, b)
+    return {
+      legs = { { kind = "delivery", path = path, distance = dist } },
+      points = { player = { me.x, me.y }, delivery = { b.x, b.y } },
+    }
+  end
+  local a = position(item.origin)
+  if not a then return nil end
   local p1, d1 = routePolyline(me, a)
   local p2, d2 = routePolyline(a, b)
   return {
@@ -1296,7 +1657,12 @@ function M.planPreview()
 end
 
 function M.setPreferences(value)
-  if type(value) == "table" then state.preferences = deepcopy(value) end
+  if type(value) ~= "table" then return end
+  local wasAuto = state.preferences and state.preferences.autoApplyGps == true
+  state.preferences = deepcopy(value)
+  if state.preferences.autoApplyGps == true and not wasAuto then
+    maybeAutoApplyRoute()
+  end
 end
 
 -- Public API: collection --------------------------------------------------------------------------
@@ -1466,13 +1832,14 @@ function M.discardSelectedCargo(token, selections)
   if not ok then return false, message end
   -- Discard can cancel several jobs at once. Remove every cancelled stop before
   -- rebuilding owned guidance, while retained loads keep their route stops.
-  for i = #state.stops, 1, -1 do
-    local job = state.jobs[state.stops[i].jobId]
-    if job and job.status == "cancelled" then table.remove(state.stops, i) end
-  end
   for id, job in pairs(state.jobs) do
-    if job.status == "cancelled" then clearFreightRoute(id) end
+    if job.status == "cancelled" then
+      removeJobFromStops(id)
+      clearFreightRoute(id)
+    end
   end
+  pruneStaleStops()
+  maybeAutoApplyRoute()
   return true, message
 end
 
@@ -1494,10 +1861,10 @@ function M.abandon(id)
   local ok, msg = kinds.forKind(job.kind).abandon(brokerServices, job)
   if not ok then return false, msg end
   job.status = "cancelled"
-  for i = #state.stops, 1, -1 do
-    if state.stops[i].jobId == id then table.remove(state.stops, i) end
-  end
+  removeJobFromStops(id)
   clearFreightRoute(id)
+  pruneStaleStops()
+  maybeAutoApplyRoute()
   refreshPois()
   overhaul_career_logistics_tasklist.sendCargoToTasklist()
   return true, "Work abandoned. Existing delivery penalties apply."
@@ -1891,6 +2258,8 @@ function M.onBrokerCargoDelivered(cargoItems)
       presenceWatcher.invalidate()
     end
   end
+  pruneStaleStops()
+  maybeAutoApplyRoute()
 end
 
 function M.onBrokerVehicleDelivered(items)
@@ -1902,6 +2271,8 @@ function M.onBrokerVehicleDelivered(items)
       presenceWatcher.invalidate()
     end
   end
+  pruneStaleStops()
+  maybeAutoApplyRoute()
 end
 
 function M.onBrokerVehicleAbandoned(offer)

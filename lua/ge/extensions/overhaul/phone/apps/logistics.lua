@@ -238,6 +238,7 @@ local BROKER_ACTIONS = {
   navigate = function(jobBroker, payload) return jobBroker.navigate(payload.id, payload.leg, payload.stopId) end,
   moveStop = function(jobBroker, payload) return jobBroker.moveStop(payload.index, payload.delta) end,
   showRoute = function(jobBroker) return jobBroker.showRoute() end,
+  autoRoute = function(jobBroker) return jobBroker.autoRoute() end,
   clearRoute = function(jobBroker) return jobBroker.clearRoute() end,
   optimizeStops = function(jobBroker) return jobBroker.optimizeStops() end,
   pickup = function(jobBroker, payload, done) return jobBroker.pickup(payload.id, payload.amount, payload.container, payload.cars, done) end,
@@ -279,6 +280,7 @@ function M.brokerAction(action, payload)
 
   if action == 'preferences' then
     jobBroker.setPreferences(payload.value)
+    publishBrokerState(brokerState())
     return { ok = true }
   end
   local handler = BROKER_ACTIONS[action]

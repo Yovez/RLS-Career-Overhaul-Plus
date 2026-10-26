@@ -285,6 +285,8 @@ end
 local dropOffDataStatus = nil
 local confirmedDropOffData = nil
 local dropOffSettlementGeneration = 0
+-- Last facility used for a successful confirmDropOffData; Job Broker may open after rewards close.
+local lastDropOffFacId = nil
 local requestDropOffWeightUpdate
 local DROP_OFF_SETTLEMENT_TIMEOUT = 180
 local function dropOffSettlementStale()
@@ -711,6 +713,7 @@ M.confirmDropOffData = function(confirmedDropOffs, facId, psPath, allowRecoveryC
   confirmedDropOffData.cargo = {}
   confirmedDropOffData.financeVehicleIds = {}
   confirmedDropOffData.financeVehicles = {}
+  lastDropOffFacId = facId
   local financeFacility = deliveryServices.generator.getFacilityById(facId)
   confirmedDropOffData.financeLocation = {locationId = facId, locationName = financeFacility and financeFacility.name}
   --dump(confirmedDropOffs)
@@ -1537,6 +1540,14 @@ end
 M.activateSound = activateSound
 -- Share of base pay added at drop-off for the player's Logistics level (0..2); the Job Broker lists pay with it.
 M.getLogisticsMoneyBonus = function() return rewardServices.getLogisticsMoneyBonusState() end
+
+M.getLastDropOffFacId = function()
+  return lastDropOffFacId
+end
+
+M.clearLastDropOffFacId = function()
+  lastDropOffFacId = nil
+end
 
 M.onOverhaulBranchTierReached = onOverhaulBranchTierReached
 

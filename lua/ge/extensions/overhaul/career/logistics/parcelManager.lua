@@ -555,20 +555,33 @@ local function getRewardsWithBreakdown(cargo)
     end
   end
 
-  for organizationId, _ in pairs(cargo.loanerOrganisations or {}) do
-    local organization = overhaul_world_organizations.getOrganization(organizationId)
-    local level = organization and organization.reputation and organization.reputation.level
-    local levelInfo = level and organization.reputationLevels and organization.reputationLevels[level+2]
-    local organizationCut = (levelInfo and levelInfo.loanerCut and levelInfo.loanerCut.value or 0.5)
-
-    local organizationElement = {
-      label = core_locales.contextTranslate("ui.career.delivery.breakdown.loanerOrganization", {cut = round(organizationCut * 100)}),
-      rewards = {money = -organizationCut * originalMoney},
-      simpleBreakdownType = "loaner",
-    }
-    organizationElement.rewards[organizationId.."Reputation"] = 5 + round((tonumber(cargo.data and cargo.data.originalDistance) or 0)/1000)
-
-    table.insert(breakdown, organizationElement)
+  -- One money cut when cargo used loaners from multiple orgs; each org still gets reputation (#468).
+  do
+    local cuts = {}
+    local loanerRep = 5 + round((tonumber(cargo.data and cargo.data.originalDistance) or 0) / 1000)
+    for organizationId, _ in pairs(cargo.loanerOrganisations or {}) do
+      local organization = overhaul_world_organizations.getOrganization(organizationId)
+      local level = organization and organization.reputation and organization.reputation.level
+      local levelInfo = level and organization.reputationLevels and organization.reputationLevels[level + 2]
+      local organizationCut = (levelInfo and levelInfo.loanerCut and levelInfo.loanerCut.value or 0.5)
+      cuts[#cuts + 1] = { id = organizationId, cut = organizationCut }
+    end
+    table.sort(cuts, function(a, b)
+      if a.cut ~= b.cut then return a.cut > b.cut end
+      return tostring(a.id) < tostring(b.id)
+    end)
+    for i, entry in ipairs(cuts) do
+      local organizationElement = {
+        label = core_locales.contextTranslate("ui.career.delivery.breakdown.loanerOrganization", {cut = round(entry.cut * 100)}),
+        rewards = {},
+        simpleBreakdownType = "loaner",
+      }
+      if i == 1 then
+        organizationElement.rewards.money = -entry.cut * originalMoney
+      end
+      organizationElement.rewards[entry.id .. "Reputation"] = loanerRep
+      table.insert(breakdown, organizationElement)
+    end
   end
 
 

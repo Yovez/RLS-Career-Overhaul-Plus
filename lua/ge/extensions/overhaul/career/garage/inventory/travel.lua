@@ -285,9 +285,13 @@ function travelPart.new(inputs)
     if autoCouple then
       carrier:queueLuaCommand(string.format('beamstate.activateAutoCoupling(%q)', tag))
     end
-    for _ = 1, 60 do
+    -- Session restore and map travel both need a longer hitch window; short waits leave trailers unhooked.
+    for attempt = 1, 120 do
       if not inputs.travel.waitForPhysics(job, restoreState) or not valid() then return false end
       if inputs.travel.hitchConnected(parentId, childId, parentNode, childNode) then return true end
+      if autoCouple and attempt % 20 == 0 then
+        carrier:queueLuaCommand(string.format('beamstate.activateAutoCoupling(%q)', tag))
+      end
       job.sleep(0.05)
     end
     if valid() and inputs.travel.hitchConnected(parentId, childId, parentNode, childNode) then return true end
@@ -444,6 +448,15 @@ function travelPart.new(inputs)
     if not relation.coupled then return inputs.travel.placeCarriedVehicle(veh, carrier, relation) end
     local ok, result = pcall(inputs.travel.restoreHitch, veh, carrier, relation, job, restoreState)
     if not ok then log("W", "career.inventory", "Map travel hitch restore: " .. tostring(result)) end
+    if not inputs.travel.isRestoreActive(restoreState) then return false, true end
+    -- Quit/reload session restore: one more hitch attempt before leaving the trailer free-floating.
+    if (not (ok and result)) and restoreState.sessionRestore and job and inputs.travel.isRestoreActive(restoreState) then
+      job.sleep(0.35)
+      if inputs.travel.isRestoreActive(restoreState) then
+        ok, result = pcall(inputs.travel.restoreHitch, veh, carrier, relation, job, restoreState)
+        if not ok then log("W", "career.inventory", "Session hitch restore retry: " .. tostring(result)) end
+      end
+    end
     if not inputs.travel.isRestoreActive(restoreState) then return false, true end
     return ok and result
   end

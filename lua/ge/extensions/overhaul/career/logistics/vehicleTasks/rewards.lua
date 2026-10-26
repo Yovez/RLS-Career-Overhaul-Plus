@@ -140,8 +140,10 @@ function part.new(inputs)
     return logisticsSkillXpEarned
   end
 
-  -- Each loaner organization takes its cut, unless employment already pays it on shift.
+  -- One money cut for mixed-company loaners (truck + trailer); keep each org's reputation.
+  -- Stacking every org's cut (#468) could wipe or invert the payout.
   local function addLoanerOrganisationCuts(breakdown, taskData, originalRewards, loanerOrgReputationReward)
+    local cuts = {}
     for organizationId, _ in pairs(taskData.loanerOrganisations or {}) do
       local emp = overhaul_career_work_employment
       if not (emp and emp.usesEmploymentPayForOrg and emp.usesEmploymentPayForOrg(organizationId)) then
@@ -149,16 +151,24 @@ function part.new(inputs)
         local level = organization and organization.reputation and organization.reputation.level
         local levelInfo = level and organization.reputationLevels and organization.reputationLevels[level+2]
         local organizationCut = (levelInfo and levelInfo.loanerCut and levelInfo.loanerCut.value or 0.5)
-
-        local organizationElement = {
-          label = core_locales.contextTranslate("ui.career.delivery.breakdown.loanerOrganization", {cut = round(organizationCut * 100)}),
-          rewards = {money = -organizationCut * originalRewards.money},
-          simpleBreakdownType = "loaner",
-        }
-        organizationElement.rewards[organizationId.."Reputation"] = loanerOrgReputationReward
-
-        table.insert(breakdown, organizationElement)
+        cuts[#cuts + 1] = { id = organizationId, cut = organizationCut }
       end
+    end
+    table.sort(cuts, function(a, b)
+      if a.cut ~= b.cut then return a.cut > b.cut end
+      return tostring(a.id) < tostring(b.id)
+    end)
+    for i, entry in ipairs(cuts) do
+      local organizationElement = {
+        label = core_locales.contextTranslate("ui.career.delivery.breakdown.loanerOrganization", {cut = round(entry.cut * 100)}),
+        rewards = {},
+        simpleBreakdownType = "loaner",
+      }
+      if i == 1 then
+        organizationElement.rewards.money = -entry.cut * originalRewards.money
+      end
+      organizationElement.rewards[entry.id .. "Reputation"] = loanerOrgReputationReward
+      table.insert(breakdown, organizationElement)
     end
   end
 
@@ -377,43 +387,154 @@ function part.new(inputs)
     gameplay_walk.setWalkingMode(true, walkPos, nil, true)
   end
 
-  local function deleteTaskVehicle(vehId, inventoryId)
+  -- Live scene id for a task vehicle (inventory mapping survives after logisticsPending clears vehId).
+  local function resolveLiveVehId(vehId, inventoryId)
+    if vehId and vehId >= 0 and scenetree.findObjectById(vehId) then return vehId end
     local inventory = overhaul_career_garage_inventory
-    local id = inventoryId or (inventory and vehId and inventory.getInventoryIdFromVehicleId(vehId))
+    local id = inventoryId or (inventory and vehId and vehId >= 0 and inventory.getInventoryIdFromVehicleId(vehId))
+    if id and inventory and inventory.getVehicleIdFromInventoryId then
+      local mapped = inventory.getVehicleIdFromInventoryId(id)
+      if mapped and mapped >= 0 and scenetree.findObjectById(mapped) then return mapped end
+    end
+    return nil
+  end
+
+  -- Deleting a still-coupled trailer crashes in C++ (BeamNGMain obj:delete). Unhook first, then remove.
+  local function vehicleStillCoupled(vehId)
+    if not vehId or vehId < 0 then return false end
+    local trailerData = core_trailerRespawn and core_trailerRespawn.getTrailerData and core_trailerRespawn.getTrailerData()
+    if trailerData then
+      if trailerData[vehId] then return true end
+      for _, info in pairs(trailerData) do
+        if type(info) == "table" and info.trailerId == vehId then return true end
+      end
+    end
+    for _, pair in ipairs(core_vehicles.attachedCouplers or {}) do
+      if pair[1] == vehId or pair[2] == vehId then return true end
+    end
+    return false
+  end
+
+  local function queueDetachAll(vehId)
+    local veh = vehId and vehId >= 0 and scenetree.findObjectById(vehId)
+    if veh and veh.queueLuaCommand then
+      veh:queueLuaCommand("if beamstate then beamstate.disableAutoCoupling(); if beamstate.detachAll then beamstate.detachAll() end end")
+    end
+  end
+
+  local function clearTrailerRegistration(vehId)
+    local trailerData = core_trailerRespawn and core_trailerRespawn.getTrailerData and core_trailerRespawn.getTrailerData()
+    if not trailerData then return end
+    trailerData[vehId] = nil
+    for towId, info in pairs(trailerData) do
+      if type(info) == "table" and info.trailerId == vehId then trailerData[towId] = nil end
+    end
+  end
+
+  -- Break every hitch touching this vehicle (truck + trailer), same approach as recovery uncouple.
+  local function forceUncoupleVehicle(vehId)
+    if not vehId or vehId < 0 then return end
+    for _, connection in ipairs(core_vehicles.attachedCouplers or {}) do
+      if connection[1] == vehId or connection[2] == vehId then
+        local a = scenetree.findObjectById(connection[1])
+        local b = scenetree.findObjectById(connection[2])
+        if a and a.queueLuaCommand then
+          a:queueLuaCommand(string.format(
+            "if beamstate then beamstate.disableAutoCoupling() end; obj:detachCoupler(%d, 0)",
+            connection[3] or 0))
+        end
+        if b and b.queueLuaCommand then
+          b:queueLuaCommand("if beamstate then beamstate.disableAutoCoupling() end")
+        end
+      end
+    end
+    queueDetachAll(vehId)
+    local towId = core_trailerRespawn and core_trailerRespawn.getAttachedNonTrailer and core_trailerRespawn.getAttachedNonTrailer(vehId)
+    if towId and towId ~= vehId then queueDetachAll(towId) end
+    local trailerData = core_trailerRespawn and core_trailerRespawn.getTrailerData and core_trailerRespawn.getTrailerData()
+    local coupled = trailerData and trailerData[vehId]
+    if type(coupled) == "table" and coupled.trailerId then queueDetachAll(coupled.trailerId) end
+    clearTrailerRegistration(vehId)
+  end
+
+  local function parkTaskVehicleAtDrop(taskData, liveId)
+    if not liveId or not taskData then return end
+    local dropSpot = taskData.dropOffPsPath and deliveryServices.generator.getParkingSpotByPath(taskData.dropOffPsPath)
+    local veh = scenetree.findObjectById(liveId)
+    if not (dropSpot and dropSpot.pos and veh and spawn.safeTeleport) then return end
+    spawn.safeTeleport(veh, dropSpot.pos, dropSpot.rot, nil, nil, nil, true, false)
+  end
+
+  -- Returns true when the scene object is gone or deleted; false when hitch detach is still pending.
+  local function deleteTaskVehicle(vehId, inventoryId, taskData)
+    local inventory = overhaul_career_garage_inventory
+    local id = inventoryId or (inventory and vehId and vehId >= 0 and inventory.getInventoryIdFromVehicleId(vehId))
     local info = id and inventory.getVehicle(id)
     -- Task cleanup owns temporary delivery loans, never an existing player or company vehicle attached to the task. Keep its scene object as well.
     local record = issued.forVehicle(info) or {}
-    if info and (not record.isDelivery or info.owned) then return end
-    if not vehId and not info then return end
-    if vehId and vehId >= 0 then
-      ejectPlayerFromTaskVehicle(vehId)
-      if be:getPlayerVehicleID(0) == vehId then return end
+    if info and (not record.isDelivery or info.owned) then return true end
+    if not vehId and not info then return true end
+
+    local liveId = resolveLiveVehId(vehId, id)
+    if liveId then
+      ejectPlayerFromTaskVehicle(liveId)
+      if be:getPlayerVehicleID(0) == liveId then return false end
+      if vehicleStillCoupled(liveId) then
+        forceUncoupleVehicle(liveId)
+        taskData = taskData or {}
+        taskData._detachFrames = (taskData._detachFrames or 0) + 1
+        -- After ~1s still hitched: park on the drop bay so the hitch must break, then keep trying.
+        if taskData._detachFrames == 60 then
+          parkTaskVehicleAtDrop(taskData, liveId)
+          forceUncoupleVehicle(liveId)
+        end
+        if vehicleStillCoupled(liveId) and taskData._detachFrames < 150 then
+          return false
+        end
+        -- Sticky coupler bookkeeping: clear reg and delete anyway after the wait.
+        clearTrailerRegistration(liveId)
+      end
     end
-    local veh = vehId and vehId >= 0 and scenetree.findObjectById(vehId)
+
+    local veh = liveId and scenetree.findObjectById(liveId)
     if info then
       inventory.removeVehicle(id, true)
-      return
+    elseif veh then
+      veh:delete()
     end
-    if veh then veh:delete() end
+    -- Inventory remove can clear the mapping without deleting a stuck scene object — finish it off.
+    veh = liveId and scenetree.findObjectById(liveId)
+    if veh then
+      forceUncoupleVehicle(liveId)
+      veh:delete()
+      if scenetree.findObjectById(liveId) then return false end
+    end
+    return true
   end
 
   -- Completion and cleanup ------------------------------------------------------------------------
 
   local function processFinished(taskData)
     if taskData.finished then
-      taskState.taskDataRemoveThisFrame = true
-
       local dropSpot = taskData.dropOffPsPath and deliveryServices.generator.getParkingSpotByPath(taskData.dropOffPsPath)
       local psPos = dropSpot and dropSpot.pos or nil
       local _ = nil
       local unicycleId = nil
-      if be:getPlayerVehicleID(0) == taskData.vehId then
+      local liveId = resolveLiveVehId(taskData.vehId,
+        taskData.offer and taskData.offer.vehicle and taskData.offer.vehicle.inventoryId)
+      if liveId and be:getPlayerVehicleID(0) == liveId then
         _, unicycleId = gameplay_walk.setWalkingMode(true, psPos, nil, true)
       end
-      deleteTaskVehicle(taskData.vehId,
-        taskData.logisticsPending and taskData.offer and taskData.offer.vehicle
-          and taskData.offer.vehicle.inventoryId or nil)
+      local inventoryId = taskData.offer and taskData.offer.vehicle and taskData.offer.vehicle.inventoryId or nil
+      -- Unhook on the first finish frame so the trailer leaves the truck even before delete settles.
+      if liveId and vehicleStillCoupled(liveId) then
+        forceUncoupleVehicle(liveId)
+      end
+      if not deleteTaskVehicle(taskData.vehId, inventoryId, taskData) then
+        return
+      end
 
+      taskState.taskDataRemoveThisFrame = true
       local unicycle = scenetree.findObjectById(unicycleId)
       if unicycle then
         spawn.safeTeleport(unicycle, psPos)
@@ -444,10 +565,16 @@ function part.new(inputs)
   end
   local function processGiveBack(taskData)
     if taskData.giveBack then
+      local inventoryId = taskData.offer and taskData.offer.vehicle and taskData.offer.vehicle.inventoryId or nil
+      local liveId = resolveLiveVehId(taskData.vehId, inventoryId)
+      if liveId then
+        ejectPlayerFromTaskVehicle(liveId)
+        if vehicleStillCoupled(liveId) then forceUncoupleVehicle(liveId) end
+      end
+      if not deleteTaskVehicle(taskData.vehId, inventoryId, taskData) then return end
+
       if overhaul_career_logistics_broker then overhaul_career_logistics_broker.onBrokerVehicleAbandoned(taskData.offer) end
       taskState.taskDataRemoveThisFrame = true
-      ejectPlayerFromTaskVehicle(taskData.vehId)
-      deleteTaskVehicle(taskData.vehId)
       callbacks.clearVehicleTasklistEntry(taskData)
 
       taskData.remove = true

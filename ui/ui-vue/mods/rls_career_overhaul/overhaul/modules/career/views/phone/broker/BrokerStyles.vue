@@ -470,6 +470,16 @@ export default {}
 }
 .route-actions .primary[data-broker-scope] { display: inline-flex; align-items: center; gap: 0.4em;
 }
+.auto-gps[data-broker-scope] { display: flex; align-items: flex-start; gap: 0.65em; margin: 0; padding: 0.55em 0.65em; border-radius: 0.45em; background: var(--panel-2, rgba(0, 0, 0, 0.22)); cursor: pointer;
+}
+.auto-gps input[data-broker-scope] { flex: 0 0 auto; width: 1.15em; height: 1.15em; margin-top: 0.15em; accent-color: var(--accent);
+}
+.auto-gps span[data-broker-scope] { display: grid; gap: 0.15em; min-width: 0;
+}
+.auto-gps strong[data-broker-scope] { font-size: 0.92em; line-height: 1.25;
+}
+.auto-gps small[data-broker-scope] { color: var(--muted); font-size: 0.78em; line-height: 1.35; font-weight: 500;
+}
 .stop-list[data-broker-scope] { display: grid; gap: 0.4em;
 }
 .plan-stop[data-broker-scope] { position: relative; display: flex; gap: 0.6em; align-items: center; padding: 0.5em 0.6em; border-radius: 0.5em; background: var(--panel);

@@ -15,6 +15,13 @@
         </div>
         <button data-broker-scope v-for="field in fields" :key="field.key" type="button" class="picker-field" :aria-label="`${field.label}: ${chosenLabel(field)}`" @click="openPicker(field.key)"><span data-broker-scope class="picker-label">{{ field.label }}</span><span data-broker-scope class="picker-value">{{ chosenLabel(field) }}</span><span data-broker-scope class="picker-chev" aria-hidden="true">›</span></button>
         <div data-broker-scope v-if="trailerTypes.length" class="filter-group"><h3 data-broker-scope>Trailer type</h3><div data-broker-scope class="chips"><button data-broker-scope v-for="type in trailerTypes" :key="type" type="button" :class="{ active: s.filter.trailers.includes(type) }" @click="toggleTrailer(type)">{{ type }}</button></div></div>
+        <div data-broker-scope v-if="showDeliveryTypeFilters" class="filter-group">
+          <h3 data-broker-scope>Delivery type</h3>
+          <div data-broker-scope class="chips">
+            <button data-broker-scope v-for="mod in deliveryModFilters" :key="mod.id" type="button" :class="{ active: (s.filter.mods || []).includes(mod.id) }" @click="toggleMod(mod.id)">{{ mod.label }}</button>
+          </div>
+          <p data-broker-scope v-if="!(s.filter.mods || []).length" class="filter-note">All delivery types included.</p>
+        </div>
         <div data-broker-scope class="filter-actions"><button data-broker-scope @click="s.resetFilters">Reset filters</button><button data-broker-scope class="primary" @click="emit('done')">Show {{ groupedOfferCount(s.rows) }} loads</button></div>
       </section>
       <section data-broker-scope v-if="pickedField" ref="optionPanel" class="sort-panel">
@@ -27,13 +34,16 @@
 // A filter opens its options in place of the filter list, like Sort, so pad,
 // mouse and keyboard all pick the same way; B steps back to the list first.
 import BrokerStyles from './BrokerStyles.vue'
+import { DELIVERY_MOD_FILTERS } from '../../../stores/phoneBrokerStore'
 import { refocusIfLost } from '../../../composables/useScreenEntryFocus.js'
 import { computed, inject, onBeforeUnmount, ref } from 'vue'
 const emit = defineEmits(['done'])
-const { groupedOfferCount, markets, s, cargoOptions, arrangementOptions, trailerTypes, pickupLocationOptions, destLocationOptions, effectiveRadius, radiusDropdownItems, isMarketFilterActive, toggleMarketFilter, toggleTrailer } = inject(Symbol.for('overhaul.phoneBroker'))
+const { groupedOfferCount, markets, s, cargoOptions, arrangementOptions, trailerTypes, pickupLocationOptions, destLocationOptions, effectiveRadius, radiusDropdownItems, isMarketFilterActive, toggleMarketFilter, toggleTrailer, toggleMod } = inject(Symbol.for('overhaul.phoneBroker'))
 const layers = inject(Symbol.for('overhaul.phoneLayers'), null)
 const picking = ref(''), filterPanel = ref(null), optionPanel = ref(null)
 let releasePicker = null, pickerOpener = null
+const deliveryModFilters = DELIVERY_MOD_FILTERS
+const showDeliveryTypeFilters = computed(() => s.market === 'parcels' || s.market === 'all' || s.market === 'specialty' || s.market === 'liquids' || s.market === 'bulk')
 const fields = computed(() => [
   { key: 'radius', label: 'Max pickup distance', items: radiusDropdownItems.value, value: effectiveRadius.value },
   { key: 'pickupFac', label: 'Pickup location', items: pickupLocationOptions.value, value: s.filter.pickupFac || '' },

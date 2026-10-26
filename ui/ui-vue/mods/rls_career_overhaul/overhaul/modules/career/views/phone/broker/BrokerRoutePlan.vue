@@ -11,8 +11,23 @@
               <div data-broker-scope class="stat"><span data-broker-scope class="stat-key">Total drive</span><span data-broker-scope class="stat-value">{{ s.data.route?.total ? dist(s.data.route.total) : '—' }}</span></div>
               <div data-broker-scope class="stat"><span data-broker-scope class="stat-key">Reserved</span><span data-broker-scope class="stat-value">{{ s.data.reservationCount }}</span></div>
             </div>
+            <label data-broker-scope class="auto-gps">
+              <input data-broker-scope type="checkbox" :checked="!!s.preferences.autoApplyGps" :disabled="working" @change="togglePref('autoApplyGps', $event)" />
+              <span data-broker-scope>
+                <strong data-broker-scope>Auto-apply GPS</strong>
+                <small data-broker-scope>When on, GPS follows the best remaining stops after loads and deliveries.</small>
+              </span>
+            </label>
+            <label data-broker-scope class="auto-gps">
+              <input data-broker-scope type="checkbox" :checked="!!s.preferences.autoOpenBrokerOnDelivery" :disabled="working" @change="togglePref('autoOpenBrokerOnDelivery', $event)" />
+              <span data-broker-scope>
+                <strong data-broker-scope>Auto-open Job Broker after delivery</strong>
+                <small data-broker-scope>When on, opens the broker at this facility if unlocked loads are available to pick up.</small>
+              </span>
+            </label>
             <div data-broker-scope class="route-actions">
-              <button data-broker-scope class="primary" :disabled="working || !s.data.stops.length" @click="s.action('showRoute')"><BngIcon data-broker-scope :type="icons.routeSimple" />Show on map</button>
+              <button data-broker-scope class="primary" :disabled="working || !s.data.stops.length" @click="s.action('autoRoute')"><BngIcon data-broker-scope :type="icons.routeSimple" />Auto-route</button>
+              <button data-broker-scope :disabled="working || !s.data.stops.length" @click="s.action('showRoute')">Show on map</button>
               <button data-broker-scope :disabled="working || s.data.stops.length < 2" @click="s.action('optimizeStops')">Auto-order</button>
               <button data-broker-scope class="text-btn" :disabled="working" @click="s.action('clearRoute')">Clear markers</button>
             </div>
@@ -37,4 +52,14 @@
 import { vBngUiNavScroll } from "@/common/directives"
 import { inject } from 'vue'
 const { BngIcon, icons, RouteMap, s, route, planPreview, planLoading, working, dist, legDistance, statusName, stopJob, openStop } = inject(Symbol.for('overhaul.phoneBroker'))
+
+async function togglePref(key, event) {
+  s.preferences[key] = !!event.target.checked
+  try {
+    await s.savePreferences()
+    await s.refresh()
+  } catch {
+    /* store savePreferences already surfaces a message on failure */
+  }
+}
 </script>

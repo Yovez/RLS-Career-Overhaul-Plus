@@ -357,6 +357,13 @@ function part.new(inputs)
       setBestRoute(true)
     end
 
+    local progress = overhaul_career_logistics_progress
+    local facId = progress and progress.getLastDropOffFacId and progress.getLastDropOffFacId()
+    if facId and overhaul_career_logistics_broker and overhaul_career_logistics_broker.tryOpenBrokerAfterDelivery then
+      overhaul_career_logistics_broker.tryOpenBrokerAfterDelivery(facId)
+    end
+    if progress and progress.clearLastDropOffFacId then progress.clearLastDropOffFacId() end
+
     -- tell player they can take a taxi back, and show one-time 0.5 s delayed
     local sequence = {
       ext.step.makeStepWait(0.5),

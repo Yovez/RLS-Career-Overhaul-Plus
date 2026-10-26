@@ -182,6 +182,19 @@ local function closePhone()
   end
 end
 
+-- Hold the vehicle while the phone is up when it actually has a parking brake.
+local function applyParkingBrakeIfAvailable()
+  if gameplay_walk and gameplay_walk.isWalking and gameplay_walk.isWalking() then return end
+  local veh = getPlayerVehicle and getPlayerVehicle(0)
+  if not veh or not veh.queueLuaCommand then return end
+  veh:queueLuaCommand([[
+    local values = electrics and electrics.values
+    if values and (values.parkingbrake ~= nil or values.parkingbrake_input ~= nil) then
+      input.event('parkingbrake', 1, 1)
+    end
+  ]])
+end
+
 local function togglePhone(reason)
   settleClosing()
   if isPhoneOpen or isPhoneRoute(getCurrentRouteName()) or isClosing then
@@ -197,6 +210,7 @@ local function togglePhone(reason)
   end
   isClosing = false
   isPhoneOpen = true
+  applyParkingBrakeIfAvailable()
   requestState()
   extensions.ui_router.navigate(initialPhoneRoute())
 end
@@ -219,8 +233,10 @@ local function openRoute(routeName, params)
   if not isPhoneUiAllowed() then return { success = false, reason = 'ui_not_ready' } end
   if blockPhoneIfComputerOpen() then return { success = false, reason = 'computer_open' } end
 
+  local alreadyOpen = isPhoneOpen or isPhoneRoute(getCurrentRouteName())
   isClosing = false
   isPhoneOpen = true
+  if not alreadyOpen then applyParkingBrakeIfAvailable() end
   requestState()
   local result = extensions.ui_router.navigate(routeName, params or {})
   if result and result.success == false then
@@ -239,6 +255,7 @@ local function openForTutorial()
   if blockPhoneIfComputerOpen() then return false end
   isClosing = false
   isPhoneOpen = true
+  applyParkingBrakeIfAvailable()
   requestState()
   extensions.ui_router.navigate(initialPhoneRoute())
   return true

@@ -51,7 +51,9 @@
       >
         <template v-if="app">
           <div
-            class="dock-icon-wrap" role="button" tabindex="0" bng-nav-item :inert="moving" :data-app-id="app.id" :aria-label="app.name"
+            class="dock-icon-wrap" role="button" tabindex="0" bng-nav-item
+            v-bng-on-ui-nav:ok.asMouse.focusRequired
+            :inert="moving" :data-app-id="app.id" :aria-label="app.name"
             :class="{
               'dock-icon-wrap--tutorial-highlight': tutorialHighlightAppId === app.id,
               'dock-icon-wrap--tutorial-blocked': tutorialBlockLaunches,
@@ -80,6 +82,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { vBngOnUiNav } from '@/common/directives'
 import PhoneAppIcon from './PhoneAppIcon.vue'
 
 const props = defineProps({
