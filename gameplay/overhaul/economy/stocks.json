@@ -3,8 +3,8 @@
   "manualFeeRate": 0,
   "brokerFeeRate": 0.05,
   "maxBrokerCashPerTicker": 0.25,
-  "brokerTakeProfit": 0.12,
-  "brokerCutLoss": -0.08,
+  "dividendIntervalTicks": 4,
+  "simTicksPerYear": 2880,
   "tickers": [
     {
       "symbol": "BLSC",
@@ -12,7 +12,8 @@
       "orgId": "belascoAuto",
       "sector": "vehicleMarket",
       "basePrice": 42.5,
-      "beta": 1.15
+      "beta": 1.15,
+      "dividendYield": 0.022
     },
     {
       "symbol": "RICH",
@@ -20,7 +21,8 @@
       "orgId": "richsMotorCompany",
       "sector": "vehicleMarket",
       "basePrice": 58.0,
-      "beta": 1.25
+      "beta": 1.25,
+      "dividendYield": 0.018
     },
     {
       "symbol": "JFRS",
@@ -28,7 +30,8 @@
       "orgId": "jeffersonMotors",
       "sector": "vehicleMarket",
       "basePrice": 36.75,
-      "beta": 1.05
+      "beta": 1.05,
+      "dividendYield": 0.024
     },
     {
       "symbol": "QASY",
@@ -36,7 +39,8 @@
       "orgId": "quarrysideAutoSales",
       "sector": "vehicleMarket",
       "basePrice": 22.4,
-      "beta": 0.95
+      "beta": 0.95,
+      "dividendYield": 0.026
     },
     {
       "symbol": "TRST",
@@ -44,7 +48,8 @@
       "orgId": "trustedAutoSales",
       "sector": "vehicleMarket",
       "basePrice": 31.2,
-      "beta": 1.0
+      "beta": 1.0,
+      "dividendYield": 0.025
     },
     {
       "symbol": "BRKL",
@@ -52,7 +57,8 @@
       "orgId": "bruckellFactory",
       "sector": "vehicleMarket",
       "basePrice": 47.8,
-      "beta": 1.1
+      "beta": 1.1,
+      "dividendYield": 0.02
     },
     {
       "symbol": "GVRL",
@@ -60,7 +66,8 @@
       "orgId": "gavrilCertified",
       "sector": "vehicleMarket",
       "basePrice": 64.0,
-      "beta": 1.2
+      "beta": 1.2,
+      "dividendYield": 0.019
     },
     {
       "symbol": "ETKF",
@@ -68,7 +75,8 @@
       "orgId": "etkFactory",
       "sector": "vehicleMarket",
       "basePrice": 71.5,
-      "beta": 1.18
+      "beta": 1.18,
+      "dividendYield": 0.021
     },
     {
       "symbol": "SHFL",
@@ -76,7 +84,8 @@
       "orgId": "shuffleboardLogistics",
       "sector": "jobMarket",
       "basePrice": 28.6,
-      "beta": 0.9
+      "beta": 0.9,
+      "dividendYield": 0.03
     },
     {
       "symbol": "SPRM",
@@ -84,7 +93,8 @@
       "orgId": "spearleafMarine",
       "sector": "jobMarket",
       "basePrice": 33.1,
-      "beta": 1.05
+      "beta": 1.05,
+      "dividendYield": 0.028
     },
     {
       "symbol": "RNTB",
@@ -92,7 +102,8 @@
       "orgId": "rentABox",
       "sector": "jobMarket",
       "basePrice": 19.8,
-      "beta": 0.85
+      "beta": 0.85,
+      "dividendYield": 0.032
     },
     {
       "symbol": "LDA",
@@ -100,7 +111,8 @@
       "orgId": "localDeliveryAssociation",
       "sector": "jobMarket",
       "basePrice": 24.5,
-      "beta": 0.8
+      "beta": 0.8,
+      "dividendYield": 0.034
     },
     {
       "symbol": "SKTL",
@@ -108,7 +120,8 @@
       "orgId": "sketchyLogistics",
       "sector": "jobMarket",
       "basePrice": 12.75,
-      "beta": 1.35
+      "beta": 1.35,
+      "dividendYield": 0.015
     },
     {
       "symbol": "BCCN",
@@ -116,7 +129,8 @@
       "orgId": "belascoCityConstruction",
       "sector": "housingMarket",
       "basePrice": 39.0,
-      "beta": 1.1
+      "beta": 1.1,
+      "dividendYield": 0.036
     },
     {
       "symbol": "HOTR",
@@ -124,7 +138,8 @@
       "orgId": "hotRolledInc",
       "sector": "housingMarket",
       "basePrice": 27.4,
-      "beta": 1.0
+      "beta": 1.0,
+      "dividendYield": 0.038
     },
     {
       "symbol": "MGBK",
@@ -132,7 +147,8 @@
       "orgId": "moneyGrabBank",
       "sector": "global",
       "basePrice": 55.0,
-      "beta": 0.75
+      "beta": 0.75,
+      "dividendYield": 0.04
     },
     {
       "symbol": "SALM",
@@ -140,7 +156,8 @@
       "orgId": "salmonsPrivateBank",
       "sector": "global",
       "basePrice": 82.0,
-      "beta": 0.65
+      "beta": 0.65,
+      "dividendYield": 0.035
     },
     {
       "symbol": "SPRF",
@@ -148,7 +165,8 @@
       "orgId": "spearleafRefinery",
       "sector": "global",
       "basePrice": 44.25,
-      "beta": 1.0
+      "beta": 1.0,
+      "dividendYield": 0.03
     },
     {
       "symbol": "FAST",
@@ -156,7 +174,8 @@
       "orgId": "fastAutomotive",
       "sector": "global",
       "basePrice": 26.9,
-      "beta": 0.95
+      "beta": 0.95,
+      "dividendYield": 0.027
     },
     {
       "symbol": "SMASH",
@@ -164,7 +183,8 @@
       "orgId": "smashAutoRepairs",
       "sector": "global",
       "basePrice": 15.6,
-      "beta": 0.88
+      "beta": 0.88,
+      "dividendYield": 0.029
     }
   ]
 }

@@ -44,7 +44,7 @@
             <div class="row-main">
               <span class="sym">{{ row.symbol }}</span>
               <span class="name">{{ row.name }}</span>
-              <span class="sector">{{ sectorLabel(row.sector) }}</span>
+              <span class="sector">{{ sectorLabel(row.sector) }} · ~{{ fmtYield(row.dividendYield) }} yr</span>
             </div>
             <div class="row-side">
               <span class="price">${{ fmt(row.price) }}</span>
@@ -66,8 +66,20 @@
           <div v-for="h in overview.portfolio" :key="h.ticker" class="holding">
             <div class="row-main">
               <span class="sym">{{ h.ticker }}</span>
-              <span class="name">{{ h.name }} · {{ h.shares }} sh</span>
+              <span class="name">{{ h.name }} · {{ h.shares }} sh · ~{{ fmtYield(h.dividendYield) }}</span>
               <span class="sector">Avg ${{ fmt(h.avgCost) }} · Now ${{ fmt(h.price) }}</span>
+              <span v-if="h.pendingDividend > 0.009" class="sector">Div pending ${{ fmt(h.pendingDividend) }}</span>
+              <label class="div-pref">
+                Dividends
+                <select
+                  :value="h.dividendPref || 'reinvest'"
+                  @change="setDividendPref(h.ticker, $event.target.value)"
+                >
+                  <option value="reinvest">Reinvest</option>
+                  <option value="wallet">Wallet</option>
+                  <option value="checking">Checking</option>
+                </select>
+              </label>
             </div>
             <div class="row-side">
               <span class="price">${{ fmt(h.value) }}</span>
@@ -86,21 +98,38 @@
 
       <!-- Broker -->
       <section v-else class="tab-panel">
-        <p class="fee-note">Managed broker charges 5% of each trade notional. Manual trades are free.</p>
+        <p class="fee-note">
+          Dump-and-forget balanced broker: buys automatically, never auto-sells.
+          Dividends go to the holding pool and get reinvested. 5% fee only when selling to withdraw. Buys are free.
+          Balanced strategy (more strategies later).
+        </p>
         <div class="summary stack">
           <div><span>Broker cash</span><strong>${{ fmt(overview.broker?.cash) }}</strong></div>
           <div><span>Holdings</span><strong>${{ fmt(overview.broker?.holdingsValue) }}</strong></div>
+          <div><span>Withdrawable</span><strong>${{ fmt(overview.broker?.withdrawableMax) }}</strong></div>
         </div>
         <label class="toggle">
           <span>Managed trading</span>
           <input type="checkbox" :checked="overview.broker?.enabled" @change="toggleBroker($event.target.checked)" />
         </label>
-        <div class="actions">
-          <input v-model.number="brokerAmount" v-bng-text-input type="number" min="1" class="amt" placeholder="Amount" inputmode="decimal" @keydown.stop @keyup.stop @keypress.stop />
+        <div class="actions deposit-row">
+          <input v-model.number="brokerAmount" v-bng-text-input type="number" min="1" class="amt" placeholder="Deposit amount" inputmode="decimal" @keydown.stop @keyup.stop @keypress.stop />
           <button type="button" class="btn" @click="depositBroker">Deposit</button>
-          <button type="button" class="btn ghost" @click="withdrawBroker">Withdraw</button>
         </div>
-        <button type="button" class="btn danger full" @click="closeBroker">Close &amp; liquidate</button>
+        <div class="actions withdraw-row">
+          <input v-model.number="withdrawAmount" v-bng-text-input type="number" min="1" class="amt" placeholder="Withdraw amount" inputmode="decimal" @keydown.stop @keyup.stop @keypress.stop />
+          <button type="button" class="btn ghost" @click="withdrawBroker">Withdraw</button>
+          <button type="button" class="btn ghost" @click="withdrawAll">All</button>
+        </div>
+        <p v-if="withdrawPreview" class="preview">
+          ${{ fmt(withdrawPreview.payable) }} to wallet
+          · ${{ fmt(withdrawPreview.fromCash) }} cash
+          · ${{ fmt(withdrawPreview.fromSales) }} from sales
+          · fee ${{ fmt(withdrawPreview.fee) }}
+          <template v-if="withdrawPreview.excessToPool > 0.009">
+            · ${{ fmt(withdrawPreview.excessToPool) }} stays in pool
+          </template>
+        </p>
         <div v-if="overview.broker?.holdings?.length" class="list">
           <div v-for="h in overview.broker.holdings" :key="'b-' + h.ticker" class="holding compact">
             <div class="row-main">
@@ -136,7 +165,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { vBngOnUiNav, vBngUiNavScroll } from '@/common/directives'
 import { lua } from '@/bridge'
 import { acquireScope } from '../../utils/luaScopes'
@@ -162,13 +191,16 @@ const overview = ref({
   markets: [],
   portfolio: [],
   portfolioValue: 0,
-  broker: { cash: 0, holdings: [], enabled: false },
+  broker: { cash: 0, holdings: [], enabled: false, withdrawableMax: 0 },
   transactions: [],
   brokerLog: [],
 })
 const trade = ref(null)
 const tradeShares = ref(1)
 const brokerAmount = ref(1000)
+const withdrawAmount = ref(1000)
+const withdrawPreview = ref(null)
+let previewTimer = null
 
 const filteredMarkets = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -195,6 +227,10 @@ function fmtPct(n) {
   const sign = v > 0 ? '+' : ''
   return `${sign}${v.toFixed(2)}%`
 }
+function fmtYield(y) {
+  const v = (Number(y) || 0) * 100
+  return `${v.toFixed(1)}%`
+}
 function chgClass(n) {
   const v = Number(n) || 0
   if (v > 0.05) return 'up'
@@ -220,6 +256,29 @@ async function refresh() {
     loaded.value = true
   }
 }
+
+async function refreshPreview() {
+  const amount = Number(withdrawAmount.value) || 0
+  if (amount < 1) {
+    withdrawPreview.value = null
+    return
+  }
+  try {
+    const preview = await lua.overhaul_career_economy_stockMarket.previewWithdraw(amount)
+    withdrawPreview.value = preview || null
+  } catch (_) {
+    withdrawPreview.value = null
+  }
+}
+
+watch(withdrawAmount, () => {
+  if (previewTimer) clearTimeout(previewTimer)
+  previewTimer = setTimeout(refreshPreview, 200)
+})
+
+watch(() => overview.value.broker?.withdrawableMax, () => {
+  if (tab.value === 'broker') refreshPreview()
+})
 
 function openTrade(row) {
   trade.value = {
@@ -263,6 +322,20 @@ async function confirmTrade() {
   }
 }
 
+async function setDividendPref(ticker, mode) {
+  try {
+    const res = await lua.overhaul_career_economy_stockMarket.setDividendPreference(ticker, mode)
+    if (res?.ok === false) {
+      reportUiFailure(res.reason || 'preference failed', 'dividend preference')
+      return
+    }
+    if (res?.overview) overview.value = res.overview
+    else await refresh()
+  } catch (e) {
+    reportUiFailure(e, 'dividend preference')
+  }
+}
+
 async function depositBroker() {
   try {
     const res = await lua.overhaul_career_economy_stockMarket.depositBroker(Number(brokerAmount.value) || 0)
@@ -272,19 +345,35 @@ async function depositBroker() {
     }
     if (res?.overview) overview.value = res.overview
     else await refresh()
+    await refreshPreview()
   } catch (e) { reportUiFailure(e, 'broker deposit') }
 }
 
 async function withdrawBroker() {
   try {
-    const res = await lua.overhaul_career_economy_stockMarket.withdrawBroker(Number(brokerAmount.value) || 0)
+    const res = await lua.overhaul_career_economy_stockMarket.withdrawFromHoldings(Number(withdrawAmount.value) || 0)
     if (res?.ok === false) {
       reportUiFailure(res.reason || 'withdraw failed', 'broker withdraw')
       return
     }
     if (res?.overview) overview.value = res.overview
     else await refresh()
+    await refreshPreview()
   } catch (e) { reportUiFailure(e, 'broker withdraw') }
+}
+
+async function withdrawAll() {
+  try {
+    const res = await lua.overhaul_career_economy_stockMarket.withdrawAll()
+    if (res?.ok === false) {
+      reportUiFailure(res.reason || 'withdraw failed', 'broker withdraw all')
+      return
+    }
+    if (res?.overview) overview.value = res.overview
+    else await refresh()
+    withdrawAmount.value = Math.max(1, Math.floor(Number(overview.value.broker?.withdrawableMax) || 1))
+    await refreshPreview()
+  } catch (e) { reportUiFailure(e, 'broker withdraw all') }
 }
 
 async function toggleBroker(enabled) {
@@ -295,14 +384,6 @@ async function toggleBroker(enabled) {
   } catch (e) { reportUiFailure(e, 'broker toggle') }
 }
 
-async function closeBroker() {
-  try {
-    const res = await lua.overhaul_career_economy_stockMarket.closeBroker()
-    if (res?.overview) overview.value = res.overview
-    else await refresh()
-  } catch (e) { reportUiFailure(e, 'broker close') }
-}
-
 let poll = null
 onMounted(async () => {
   try {
@@ -311,10 +392,12 @@ onMounted(async () => {
     reportUiFailure(e, 'stock market scope')
   }
   await refresh()
+  await refreshPreview()
   poll = setInterval(refresh, 8000)
 })
 onUnmounted(() => {
   if (poll) clearInterval(poll)
+  if (previewTimer) clearTimeout(previewTimer)
 })
 </script>
 
@@ -405,6 +488,27 @@ onUnmounted(() => {
 .name { font-size: 12px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sector { font-size: 10.5px; color: rgba(255, 255, 255, 0.4); }
 
+.div-pref {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.55);
+
+  select {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: #0d0d0d;
+    color: #fff;
+    font: inherit;
+    font-size: 11px;
+  }
+}
+
 .row-side {
   display: flex;
   flex-direction: column;
@@ -452,11 +556,25 @@ onUnmounted(() => {
 
 .actions {
   display: grid;
-  grid-template-columns: 1fr auto auto;
   gap: 6px;
   margin-bottom: 8px;
 
   .amt { margin: 0; }
+
+  &.deposit-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  &.withdraw-row {
+    grid-template-columns: 1fr auto auto;
+  }
+}
+
+.preview {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .btn {
