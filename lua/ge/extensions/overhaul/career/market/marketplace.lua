@@ -11,6 +11,7 @@
 local M = {}
 
 local negotiationLib = require('overhaul/career/market/marketplace/negotiation')
+local listingWatchesLib = require('overhaul/career/market/marketplace/listingWatches')
 local phoneLayout = require("overhaul/lib/phone/layoutOwner")
 local personalitySources = require('overhaul/lib/market/personalityData')
 
@@ -202,8 +203,56 @@ local function fireMarketplacePhoneNotification(channelKey, title, message, meta
   if type(opts.replaceKey) == "string" and opts.replaceKey ~= "" then
     payload.replaceKey = opts.replaceKey
   end
-  return layout.fireNotification(channelKey, payload)
+  if type(opts.route) == "string" and opts.route ~= "" then
+    payload.route = opts.route
+  end
+  if type(opts.routeName) == "string" and opts.routeName ~= "" then
+    payload.routeName = opts.routeName
+  end
+  -- Flat deep-link fields survive guihooks; nested routeParams often do not.
+  if type(opts.routeKind) == "string" and opts.routeKind ~= "" then
+    payload.routeKind = opts.routeKind
+  end
+  if type(opts.routeVehicleId) == "string" and opts.routeVehicleId ~= "" then
+    payload.routeVehicleId = opts.routeVehicleId
+  end
+  if type(opts.routeModelKey) == "string" and opts.routeModelKey ~= "" then
+    payload.routeModelKey = opts.routeModelKey
+  end
+  if type(opts.routeParams) == "table" then
+    payload.routeParams = opts.routeParams
+  end
+  if type(opts.appId) == "string" and opts.appId ~= "" then
+    payload.appId = opts.appId
+  end
+  return layout.fireNotification(channelKey, payload, { appId = opts.appId })
 end
+
+local function shopVehicles()
+  local shopping = extensions.overhaul_career_market_vehicleShopping
+  if not shopping then return {} end
+  if shopping.getVehiclesInShop then
+    local list = shopping.getVehiclesInShop()
+    if type(list) == "table" then return list end
+  end
+  return {}
+end
+
+local function privateShopVehicles()
+  local private = {}
+  for _, vehicle in ipairs(shopVehicles()) do
+    if tostring(vehicle.sellerId or "") == "private" and not vehicle.__sold and not vehicle.soldViewCounter then
+      table.insert(private, vehicle)
+    end
+  end
+  return private
+end
+
+local listingWatches = listingWatchesLib.new({
+  fireNotification = fireMarketplacePhoneNotification,
+  getPrivateListings = privateShopVehicles,
+  getShopListings = shopVehicles,
+})
 
 local function countPendingOffers()
   local count = 0
@@ -1246,9 +1295,13 @@ local function normalizeLoadedListing(listing, timeNow)
 end
 
 local function onOverhaulSaveCurrentProfile(currentSavePath, vehiclesThumbnailUpdate)
-  overhaul_career_saveSystem.jsonWriteFileSafe(currentSavePath .. "/career/marketplace.json", {
-    listedVehicles = listedVehicles
-  }, true)
+  local payload = {
+    listedVehicles = listedVehicles,
+  }
+  local watchState = listingWatches.saveState()
+  payload.listingWatches = watchState.listingWatches
+  payload.listingWatchNotified = watchState.listingWatchNotified
+  overhaul_career_saveSystem.jsonWriteFileSafe(currentSavePath .. "/career/marketplace.json", payload, true)
 end
 
 local function onExtensionLoaded()
@@ -1258,8 +1311,12 @@ local function onExtensionLoaded()
   if not saveSlot or not savePath then return end
 
   local data = jsonReadFile(savePath .. "/career/marketplace.json")
-  if not data then return end
-  listedVehicles = data.listedVehicles
+  if not data then
+    listingWatches.loadState(nil)
+    return
+  end
+  listedVehicles = data.listedVehicles or {}
+  listingWatches.loadState(data)
   local timeNow = os.time()
   for _, listing in ipairs(listedVehicles) do
     normalizeLoadedListing(listing, timeNow)
@@ -1311,6 +1368,21 @@ M.routeToListing = negotiation.routeToListing
 M.goToListing = negotiation.goToListing
 
 M.notifyOnPhoneAppInstalled = notifyOnPhoneAppInstalled
+
+M.getListingWatches = listingWatches.getWatches
+M.getListingWatchOptions = listingWatches.collectOptions
+M.addListingWatch = function(kind, value, label)
+  return listingWatches.addWatch(kind, value, label)
+end
+M.removeListingWatch = function(id)
+  return listingWatches.removeWatch(id)
+end
+M.hasListingWatch = function(kind, value)
+  return listingWatches.hasWatch(kind, value)
+end
+M.onPrivateListingAdded = listingWatches.onPrivateListingAdded
+M.scanListingWatches = listingWatches.scanPrivateListings
+M.resolveListingWatchAlert = listingWatches.resolveAlertTarget
 
 -- Inventory negotiation contract ------------------------------------------------------------------
 

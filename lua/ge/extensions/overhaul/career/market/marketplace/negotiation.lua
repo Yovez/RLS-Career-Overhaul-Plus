@@ -834,6 +834,8 @@ function negotiation.create(marketplace, listingOffers, minRatioDenominator)
     end
     vehicleInfo.Value = theirOffer
     vehicleInfo.negotiationPossible = false
+    -- Keep checkout reachable after leaving the purchase screen; cleared when the sale completes.
+    vehicleInfo.pendingCheckout = true
     vehicleInfo.valueBase = theirOffer / overhaul_career_market_valueCalculator.getVehicleBuyMarketMultiplier()
     myOffer = nil
     negotiationCarMeetOfferIndex = nil

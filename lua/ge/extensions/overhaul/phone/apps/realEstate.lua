@@ -163,6 +163,107 @@ local function setRouteToGarage(garageId)
   end
 end
 
+-- Preferred home for one-tap Route Home (per career save).
+local primaryHomeGarageId = nil
+local PRIMARY_HOME_FILE = "career/rls_career/primaryHome.json"
+
+local function loadPrimaryHome()
+  primaryHomeGarageId = nil
+  if not (overhaul_career_saveSystem and overhaul_career_saveSystem.getCurrentProfile) then return end
+  local _, savePath = overhaul_career_saveSystem.getCurrentProfile()
+  if not savePath or savePath == "" then return end
+  local data = jsonReadFile(savePath .. "/" .. PRIMARY_HOME_FILE)
+  if type(data) == "table" and data.garageId then
+    primaryHomeGarageId = tostring(data.garageId)
+  end
+end
+
+local function savePrimaryHome()
+  if not (overhaul_career_saveSystem and overhaul_career_saveSystem.getCurrentProfile) then return end
+  local _, savePath = overhaul_career_saveSystem.getCurrentProfile()
+  if not savePath or savePath == "" then return end
+  local path = savePath .. "/" .. PRIMARY_HOME_FILE
+  if overhaul_career_saveSystem.jsonWriteFileSafe then
+    overhaul_career_saveSystem.jsonWriteFileSafe(path, { garageId = primaryHomeGarageId }, true)
+  else
+    jsonWriteFile(path, { garageId = primaryHomeGarageId }, true)
+  end
+end
+
+local function setPrimaryHome(garageId)
+  if garageId == nil or garageId == "" then
+    primaryHomeGarageId = nil
+  else
+    primaryHomeGarageId = tostring(garageId)
+  end
+  savePrimaryHome()
+end
+
+-- Owned homes on the current map only (purchased, not rentals).
+local function ownedHomesOnLevel()
+  loadPrimaryHome()
+  if not careerActive() then return {} end
+  local levelName = getCurrentLevel()
+  if not levelName or levelName == "" then return {} end
+  local garages = overhaul_world_facilities.getFacilitiesByType("garage", levelName)
+  if not garages then return {} end
+  local rows = buildGarageRows(garages, levelName)
+  local owned = {}
+  for _, row in ipairs(rows) do
+    if row.owned then
+      row.isPrimary = primaryHomeGarageId ~= nil and tostring(row.id) == primaryHomeGarageId
+      owned[#owned + 1] = row
+    end
+  end
+  table.sort(owned, function(a, b)
+    if a.isPrimary ~= b.isPrimary then return a.isPrimary end
+    return (a.distance or 0) < (b.distance or 0)
+  end)
+  return owned
+end
+
+local function routeToHomeGarage(garageId, name)
+  setPrimaryHome(garageId)
+  setRouteToGarage(garageId)
+  local label = name or garageId
+  ui_message(string.format("Routing home to %s.", label), 3, "info", "info")
+  return { ok = true, garageId = garageId, name = label }
+end
+
+-- One owned home (or a saved primary): route immediately. Several with no primary: return picker list.
+local function routeHome(forcePicker)
+  local homes = ownedHomesOnLevel()
+  if not homes[1] then
+    ui_message("No owned home on this map.", 3, "info", "info")
+    return { ok = false, reason = "none", message = "No owned home on this map." }
+  end
+  if forcePicker or (#homes > 1 and not primaryHomeGarageId) then
+    return { ok = false, reason = "picker", homes = homes, primaryGarageId = primaryHomeGarageId }
+  end
+  if #homes == 1 then
+    return routeToHomeGarage(homes[1].id, homes[1].name)
+  end
+  for _, home in ipairs(homes) do
+    if home.isPrimary then
+      return routeToHomeGarage(home.id, home.name)
+    end
+  end
+  return { ok = false, reason = "picker", homes = homes, primaryGarageId = primaryHomeGarageId }
+end
+
+local function routeHomeTo(garageId)
+  if garageId == nil or garageId == "" then
+    return { ok = false, reason = "invalid", message = "Pick a home to route to." }
+  end
+  local homes = ownedHomesOnLevel()
+  for _, home in ipairs(homes) do
+    if tostring(home.id) == tostring(garageId) then
+      return routeToHomeGarage(home.id, home.name)
+    end
+  end
+  return { ok = false, reason = "missing", message = "That home is not owned on this map." }
+end
+
 local function endLeaseEarly(garageId)
   if not careerActive() then
     return { error = "rental_system_unavailable" }
@@ -170,8 +271,24 @@ local function endLeaseEarly(garageId)
   return overhaul_career_garage_property_propertyRentals.endLeaseEarly(garageId)
 end
 
+function M.onOverhaulSaveCurrentProfile(currentSavePath)
+  if not currentSavePath or currentSavePath == "" then return end
+  local path = currentSavePath .. "/" .. PRIMARY_HOME_FILE
+  if overhaul_career_saveSystem and overhaul_career_saveSystem.jsonWriteFileSafe then
+    overhaul_career_saveSystem.jsonWriteFileSafe(path, { garageId = primaryHomeGarageId }, true)
+  end
+end
+
+function M.onOverhaulActive(active)
+  if active then loadPrimaryHome() else primaryHomeGarageId = nil end
+end
+
 M.requestGarageListings = requestGarageListings
 M.setRouteToGarage = setRouteToGarage
+M.routeHome = routeHome
+M.routeHomeTo = routeHomeTo
+M.listOwnedHomes = ownedHomesOnLevel
+M.setPrimaryHome = setPrimaryHome
 M.endLeaseEarly = endLeaseEarly
 
 -- Loaded on demand by the phone. Restoring it on Lua reload would load career modules before career is active.

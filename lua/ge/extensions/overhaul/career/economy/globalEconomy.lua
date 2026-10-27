@@ -734,6 +734,9 @@ local function runEconomyTickCore(elapsed, requestMarketWatch)
   recordHistory()
 
   overhaul_world_fuel_fuelPrice.onEconomyUpdated()
+  if overhaul_career_economy_stockMarket and overhaul_career_economy_stockMarket.onEconomyUpdated then
+    overhaul_career_economy_stockMarket.onEconomyUpdated()
+  end
 
   if requestMarketWatch then
     requestMarketWatchData()

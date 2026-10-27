@@ -70,6 +70,7 @@ function useShopVehicle(props) {
   )
 
   const purchaseButtonLabel = computed(() => {
+    if (vehicle().pendingCheckout) return "Complete purchase"
     if (props.phoneMode && vehicle().sellerId === "private") return "Buy"
     if (props.racingTeamShop) return "Purchase for Team"
     const garageDeliveryAllowed = sellerAccess.value?.garageDeliveryAllowed ?? vehicle().garageDeliveryAllowed
@@ -116,8 +117,13 @@ function useShopVehicle(props) {
   // which actions this listing offers (same conditions the card always used)
   const showRoute = computed(() => !props.phoneMode && !isOnlineSeller.value)
   const showTaxi = computed(() => !props.phoneMode && !data().currentSeller && !isOnlineSeller.value)
-  const showPurchase = computed(() => (vehicle().sellerId !== "private" || props.phoneMode) && canPurchaseFromHere.value)
-  const showNegotiate = computed(() => props.phoneMode && vehicle().sellerId === "private")
+  // Private listings normally haggle first; after an accepted offer they need checkout again.
+  const showPurchase = computed(() =>
+    (vehicle().sellerId !== "private" || props.phoneMode || vehicle().pendingCheckout) && canPurchaseFromHere.value
+  )
+  const showNegotiate = computed(() =>
+    props.phoneMode && vehicle().sellerId === "private" && !vehicle().pendingCheckout
+  )
 
   const formatDistance = distance => (isFiniteNumber(distance) ? units.buildString("length", distance, 1) : "Unknown")
   const formatTaxiCost = price => (isFiniteNumber(price) ? units.beamBucks(price) : "cost unknown")

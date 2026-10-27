@@ -301,6 +301,13 @@ function M.new(inputs)
               local model = generatedVehicle.model_key
               if model then generation.stockedModels[model] = (generation.stockedModels[model] or 0) + 1 end
             end
+            -- Marketplace app watches private-party stock only (seller id / sales channel).
+            if generatedVehicle.sellerId == "private" or generatedVehicle.salesChannel == "private" then
+              local marketplace = extensions.overhaul_career_market_marketplace
+              if marketplace and marketplace.onPrivateListingAdded then
+                marketplace.onPrivateListingAdded(generatedVehicle)
+              end
+            end
             changed = true
             updateSummary.inserted = updateSummary.inserted + 1
             successfulGenerationsForSeller = successfulGenerationsForSeller + 1

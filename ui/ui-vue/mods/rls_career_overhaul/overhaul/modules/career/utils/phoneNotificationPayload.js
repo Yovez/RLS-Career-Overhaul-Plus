@@ -34,8 +34,15 @@ export function normalizePhoneNotificationPayload(raw) {
   const channelKey = sanitizeText(raw.channelKey)
   const appId = sanitizeText(raw.appId)
   const route = sanitizeText(raw.route)
+  const routeName = sanitizeText(raw.routeName)
+  const routeKind = sanitizeText(raw.routeKind)
+  const routeVehicleId = sanitizeText(raw.routeVehicleId)
+  const routeModelKey = sanitizeText(raw.routeModelKey)
   const replaceKey = sanitizeText(raw.replaceKey)
   const installAppId = sanitizeText(raw.installAppId)
+  const routeParams = raw.routeParams && typeof raw.routeParams === 'object' && !Array.isArray(raw.routeParams)
+    ? { ...raw.routeParams }
+    : null
 
   const base = {
     title,
@@ -52,6 +59,11 @@ export function normalizePhoneNotificationPayload(raw) {
     ...(channelKey ? { channelKey } : {}),
     ...(appId ? { appId } : {}),
     ...(route ? { route } : {}),
+    ...(routeName ? { routeName } : {}),
+    ...(routeKind ? { routeKind } : {}),
+    ...(routeVehicleId ? { routeVehicleId } : {}),
+    ...(routeModelKey ? { routeModelKey } : {}),
+    ...(routeParams ? { routeParams } : {}),
     ...(replaceKey ? { replaceKey } : {}),
     ...(installAppId ? { installAppId } : {}),
   }

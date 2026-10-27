@@ -26,6 +26,22 @@ Map of PhoneRealEstate.vue. This view owns lifecycle, the tab state and the mini
     <template v-if="careerActive && loaded">
       <!-- Toolbar -->
       <div class="toolbar">
+        <div class="toolbar-home-row">
+          <button class="route-home-btn" type="button" :disabled="routeHomeBusy" @click="onRouteHome()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+            Route home
+          </button>
+          <button
+            v-if="ownedHomeCount > 1"
+            class="route-home-change"
+            type="button"
+            :disabled="routeHomeBusy"
+            title="Choose which home to route to"
+            @click="onRouteHome(true)"
+          >
+            Choose…
+          </button>
+        </div>
         <div class="view-toggle">
           <button :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -347,6 +363,32 @@ Map of PhoneRealEstate.vue. This view owns lifecycle, the tab state and the mini
     </template>
 
     <Transition name="modal-fade">
+      <PhoneLayer v-if="showHomePicker" class="home-picker-overlay" @click.self="showHomePicker = false" label="Choose home" @close="showHomePicker = false">
+        <div class="home-picker-modal">
+          <p class="home-picker-title">Route home</p>
+          <p class="home-picker-note">Pick a primary home. Next time, Route home goes there automatically.</p>
+          <button
+            v-for="home in homePickerList"
+            :key="home.id"
+            type="button"
+            class="home-picker-row"
+            :class="{ primary: home.isPrimary }"
+            :disabled="routeHomeBusy"
+            bng-nav-item
+            @click="pickHome(home)"
+          >
+            <span class="home-picker-copy">
+              <strong>{{ home.name }}</strong>
+              <small v-if="home.distance >= 0">{{ formatDistance(home.distance) }}</small>
+            </span>
+            <span v-if="home.isPrimary" class="home-picker-badge">Primary</span>
+          </button>
+          <button class="modal-btn cancel-btn home-picker-cancel" type="button" @click="showHomePicker = false">Cancel</button>
+        </div>
+      </PhoneLayer>
+    </Transition>
+
+    <Transition name="modal-fade">
       <PhoneLayer v-if="showEndLeaseConfirm && endLeaseTarget" class="end-lease-overlay" @click.self="showEndLeaseConfirm = false" label="End lease" @close="showEndLeaseConfirm = false">
         <div class="end-lease-modal">
           <p class="end-lease-title">End Lease Early?</p>
@@ -428,17 +470,22 @@ const expandedId = ref(null)
 const selectedGarage = ref(null)
 const showEndLeaseConfirm = ref(false)
 const endLeaseTarget = ref(null)
+const showHomePicker = ref(false)
+const homePickerList = ref([])
+const routeHomeBusy = ref(false)
+const ownedHomeCount = computed(() => garages.value.filter(g => g.owned).length)
 const filterPanelRef = ref(null)
 const firstFilterInputRef = ref(null)
 const screenRef = ref(null)
 usePhoneScreen({ onBack: () => {
+  if (showHomePicker.value) { showHomePicker.value = false; return true }
   if (listingsSubView.value === 'offers') { setListingsSubView('owned'); return true }
   if (expandedId.value) { expandedId.value = null; return true }
   return false
 } })
 usePhoneViewFocus(screenRef, () => `${viewMode.value}:${listingsSubView.value}`)
 function changeView(delta) {
-  if (filterOpen.value || sortOpen.value || showEndLeaseConfirm.value) return
+  if (filterOpen.value || sortOpen.value || showEndLeaseConfirm.value || showHomePicker.value) return
   const views = ['list', 'map', 'listings']
   viewMode.value = views[(views.indexOf(viewMode.value) + delta + views.length) % views.length]
 }
@@ -547,6 +594,37 @@ function selectMarker(garage) {
 
 function setRoute(garage) {
   lua.overhaul_phone_apps_realEstate.setRouteToGarage(garage.id)
+}
+
+async function onRouteHome(forcePicker = false) {
+  if (routeHomeBusy.value) return
+  routeHomeBusy.value = true
+  try {
+    await acquireScope(lua, 'phone.realEstate')
+    const result = await lua.overhaul_phone_apps_realEstate.routeHome(forcePicker === true)
+    if (result?.reason === 'picker') {
+      homePickerList.value = Array.isArray(result.homes) ? result.homes : []
+      showHomePicker.value = true
+      return
+    }
+    if (result?.ok === false && result.message) {
+      // Lua already may toast; keep a soft UI fallback via empty picker note only when needed.
+    }
+  } finally {
+    routeHomeBusy.value = false
+  }
+}
+
+async function pickHome(home) {
+  if (!home?.id || routeHomeBusy.value) return
+  routeHomeBusy.value = true
+  try {
+    await acquireScope(lua, 'phone.realEstate')
+    await lua.overhaul_phone_apps_realEstate.routeHomeTo(home.id)
+    showHomePicker.value = false
+  } finally {
+    routeHomeBusy.value = false
+  }
 }
 
 function openGarageListing(garage) {
@@ -819,6 +897,52 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.toolbar-home-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-home-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: #f97316;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.route-home-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.route-home-change {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #1a1a1a;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.route-home-change:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .view-toggle {
@@ -1568,6 +1692,97 @@ onUnmounted(() => {
 
   s { color: rgba(255,255,255,0.35); margin-right: 6px; }
   strong { color: #34d399; }
+}
+
+.home-picker-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.home-picker-modal {
+  background: linear-gradient(180deg, rgba(26, 26, 26, 0.97) 0%, rgba(13, 13, 13, 0.97) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 16px;
+  width: 100%;
+  max-width: 320px;
+  max-height: 80%;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.home-picker-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+}
+
+.home-picker-note {
+  margin: 0 0 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.home-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.home-picker-row.primary {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.12);
+}
+
+.home-picker-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.home-picker-copy strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.home-picker-copy small {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.home-picker-badge {
+  flex: 0 0 auto;
+  padding: 0.2em 0.45em;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.home-picker-cancel {
+  margin-top: 4px;
 }
 
 // End lease confirmation dialog.

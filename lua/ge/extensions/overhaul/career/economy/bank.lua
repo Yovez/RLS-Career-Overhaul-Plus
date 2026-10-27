@@ -4,6 +4,7 @@ local M = {}
 
 local saveStore = require("overhaul/lib/save/store")
 local ensureDir = require("overhaul/lib/save/ensureDir")
+local bankAutomation = require("overhaul/career/economy/bank/automation")
 
 local ledgerAuthority = require("overhaul/lib/ledger/authority")
 local moneyCategories = require("overhaul/lib/ledger/categories")
@@ -105,6 +106,7 @@ local function triggerAccountUpdate(accountId)
 
     extensions.hook("onOverhaulAccountUpdate", accountId, accountData)
     guihooks.trigger("bank:onOverhaulAccountUpdate", accountData)
+    bankAutomation.onAccountChanged()
   end)
 
   if not success then
@@ -276,6 +278,9 @@ local function loadBankData()
   if data.accounts then
     for _, acc in ipairs(data.accounts) do
       accounts[acc.id] = acc
+      if (acc.type or "") == "personal" and (acc.accountType == nil or acc.accountType == "") then
+        acc.accountType = "checking"
+      end
       migrateSavingsInterestOnLoad(acc)
     end
   end
@@ -312,6 +317,8 @@ local function loadBankData()
     end
   end
 
+  bankAutomation.load(data.automation)
+
   isLoadingData = false
 end
 
@@ -331,7 +338,10 @@ local function saveBankData(currentSavePath, forceSave, writer)
     return
   end
 
-  ensureDir.parentOf(writer, saveFilePath(currentSavePath))
+  writer = writer or overhaul_career_saveSystem.getSaveWriter()
+  if writer then
+    ensureDir.parentOf(writer, saveFilePath(currentSavePath))
+  end
 
   local accountsArray = {}
   for _, acc in pairs(accounts) do
@@ -360,7 +370,8 @@ local function saveBankData(currentSavePath, forceSave, writer)
   local data = {
     accounts = accountsArray,
     pendingTransfers = transfersArray,
-    transactions = transactionsArray
+    transactions = transactionsArray,
+    automation = bankAutomation.save(),
   }
 
   overhaul_career_saveSystem.jsonWriteFileSafe(saveFilePath(currentSavePath), data, true)
@@ -526,6 +537,7 @@ local function deleteAccount(accountId)
   accounts[accountId] = nil
   unbindLedgerAccount(accountId)
   transactions[accountId] = nil
+  bankAutomation.clearAccount(accountId)
 
   return true
 end
@@ -840,12 +852,29 @@ local function getAccounts()
   return accountsArray
 end
 
+local function getAccountById(accountId)
+  if not accountId then return nil end
+  return accounts[tostring(accountId)]
+end
+
 local function getAccountBalance(accountId)
   if not accountId or not accounts[accountId] then
     return 0
   end
   processPendingTransfers()
   return accounts[accountId].balance or 0
+end
+
+local function persistBankNow()
+  if isLoadingData then return end
+  local _, path = overhaul_career_saveSystem.getCurrentProfile()
+  if not path then return end
+  local ok, err = pcall(function()
+    saveBankData(path, true, overhaul_career_saveSystem.getSaveWriter())
+  end)
+  if not ok then
+    log("E", "bank", "persistBankNow failed: " .. tostring(err))
+  end
 end
 
 -- Business balance including money still in transit out of it.
@@ -1078,6 +1107,48 @@ M.cancelPendingTransfer = cancelPendingTransfer
 M.payFromAccount = payFromAccount
 M.rewardToAccount = rewardToAccount
 M.getAccountTransactions = getAccountTransactions
+
+M.getAccountById = getAccountById
+M.getAccountAutomation = bankAutomation.getAccountAutomation
+
+function M.setAutoPay(accountId, enabled, categories)
+  local result = bankAutomation.setAutoPay(accountId, enabled, categories)
+  if result and result.ok then persistBankNow() end
+  return result
+end
+
+function M.setAutoDeposit(accountId, depositCfg)
+  local result = bankAutomation.setAutoDeposit(accountId, depositCfg)
+  if result and result.ok then persistBankNow() end
+  return result
+end
+
+function M.setAutoInvest(accountId, investCfg)
+  local result = bankAutomation.setAutoInvest(accountId, investCfg)
+  if result and result.ok then
+    persistBankNow()
+    local ok, err = pcall(bankAutomation.evaluateAutoInvest)
+    if not ok then
+      log("E", "bank", "setAutoInvest evaluate failed: " .. tostring(err))
+    end
+  end
+  return result
+end
+
+function M.setBalanceRules(accountId, rules)
+  local result = bankAutomation.setBalanceRules(accountId, rules)
+  if result and result.ok then
+    persistBankNow()
+    bankAutomation.evaluateBalanceRules()
+  end
+  return result
+end
+
+M.resolvePayAccount = bankAutomation.resolvePayAccount
+M.maybeAutoDeposit = bankAutomation.maybeAutoDeposit
+M.evaluateBalanceRules = bankAutomation.evaluateBalanceRules
+M.evaluateAutoInvest = bankAutomation.evaluateAutoInvest
+M.spendBucket = bankAutomation.spendBucket
 
 -- Game hooks exports ------------------------------------------------------------------------------
 

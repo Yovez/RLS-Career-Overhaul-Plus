@@ -268,6 +268,17 @@ export const BUILTIN_PHONE_ROUTES = [
     "ownerKind": "phone"
   },
   {
+    "name": "phone-stock-market",
+    "path": "phone-stock-market",
+    "component": "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/views/phone/PhoneStockMarket.vue",
+    "uiOrder": 103,
+    "luaOrder": 47,
+    "backTarget": "phone-main",
+    "id": "phone-stock-market",
+    "ownerId": "stock-market",
+    "ownerKind": "phone"
+  },
+  {
     "name": "phone-marketplace",
     "path": "phone-marketplace",
     "component": "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/views/phone/PhoneMarketplace.vue",
@@ -309,6 +320,17 @@ export const BUILTIN_PHONE_ROUTES = [
     "backTarget": "phone-marketplace",
     "props": true,
     "id": "phone-marketplace-vehicle",
+    "ownerId": "marketplace",
+    "ownerKind": "phone"
+  },
+  {
+    "name": "phone-marketplace-watches",
+    "path": "phone-marketplace-watches",
+    "component": "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/views/phone/PhoneMarketplaceWatches.vue",
+    "uiOrder": 71,
+    "luaOrder": 46,
+    "backTarget": "phone-marketplace",
+    "id": "phone-marketplace-watches",
     "ownerId": "marketplace",
     "ownerKind": "phone"
   },

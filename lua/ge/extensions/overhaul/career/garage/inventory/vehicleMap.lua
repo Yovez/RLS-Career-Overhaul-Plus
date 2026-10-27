@@ -4,6 +4,79 @@ local M = {}
 local levelData = require('overhaul/lib/world/levelData')
 local warned = {}
 
+local function typeLooksLikeTrailer(value)
+  value = tostring(value or ""):lower()
+  return value == "trailer" or value == "trailers"
+end
+
+-- Word "trailer" in names (mod trailers often keep Type=Car when built from a truck bed).
+local function textLooksLikeTrailer(value)
+  local text = tostring(value or ""):lower()
+  return text:find("%f[%w]trailers?%f[%W]") ~= nil
+end
+
+local function aggregatesLookLikeTrailer(aggregates)
+  if type(aggregates) ~= "table" then return false end
+  local types = aggregates.Type
+  if type(types) == "table" then
+    if types.Trailer or types.trailer then return true end
+    for typeName, on in pairs(types) do
+      if on and typeLooksLikeTrailer(typeName) then return true end
+    end
+  elseif typeLooksLikeTrailer(types) then
+    return true
+  end
+  for _, key in ipairs({ "Body Style", "Configuration", "Name" }) do
+    local field = aggregates[key]
+    if type(field) == "table" then
+      for name, on in pairs(field) do
+        if on and textLooksLikeTrailer(name) then return true end
+      end
+    elseif textLooksLikeTrailer(field) then
+      return true
+    end
+  end
+  return false
+end
+
+-- Trailers stay in the inventory / garage list but do not consume car slots.
+function M.isTrailer(vehicle)
+  if type(vehicle) ~= "table" then return false end
+  if vehicle.vehOfferType == "trailer" then return true end
+  if typeLooksLikeTrailer(vehicle.Type) then return true end
+  if aggregatesLookLikeTrailer(vehicle.aggregates) then return true end
+  if textLooksLikeTrailer(vehicle.Name) or textLooksLikeTrailer(vehicle.niceName)
+    or textLooksLikeTrailer(vehicle.Configuration) then
+    return true
+  end
+
+  local modelName = vehicle.model or vehicle.model_key or vehicle.JBeam
+  if textLooksLikeTrailer(modelName) then return true end
+  if not modelName or not core_vehicles then return false end
+
+  local configName = vehicle.key or vehicle.config_name
+  local config = vehicle.config
+  if type(config) == "table" and type(config.partConfigFilename) == "string" then
+    local _, fromPath = path.splitWithoutExt(config.partConfigFilename)
+    configName = fromPath or configName
+  end
+  if configName and core_vehicles.getConfig then
+    local configInfo = core_vehicles.getConfig(modelName, configName)
+    if configInfo then
+      if configInfo.takesNoInventorySpace then return true end
+      if aggregatesLookLikeTrailer(configInfo.aggregates) then return true end
+      if textLooksLikeTrailer(configInfo.Name) or textLooksLikeTrailer(configInfo.Configuration) then
+        return true
+      end
+    end
+  end
+  local model = core_vehicles.getModel and core_vehicles.getModel(modelName)
+  local modelData = model and (model.model or model)
+  if not modelData then return false end
+  if typeLooksLikeTrailer(modelData.Type) then return true end
+  return textLooksLikeTrailer(modelData.Name) or textLooksLikeTrailer(modelData.Brand and (tostring(modelData.Brand) .. " " .. tostring(modelData.Name)))
+end
+
 function M.homeGarage(vehicle)
   if tostring(vehicle.location or ''):find('freightPickup:', 1, true) == 1 then
     return vehicle.freightHomeGarageId

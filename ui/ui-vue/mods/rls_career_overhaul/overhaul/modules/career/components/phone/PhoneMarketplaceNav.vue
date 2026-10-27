@@ -19,6 +19,18 @@
     <button
       type="button"
       class="nav-btn"
+      :class="{ active: active === 'watches' }"
+      @click="go('phone-marketplace-watches')"
+    >
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+        <path d="M13.73 21a2 2 0 01-3.46 0" />
+      </svg>
+      Alerts
+    </button>
+    <button
+      type="button"
+      class="nav-btn"
       :class="{ active: active === 'sell' }"
       @click="go('phone-marketplace-sell')"
     >
@@ -36,14 +48,19 @@
 import { lua } from '@/bridge'
 
 const props = defineProps({
-  /** Which tab is highlighted: 'buy' | 'sell'. */
+  /** Which tab is highlighted: 'buy' | 'watches' | 'sell'. */
   active: { type: String, default: 'buy' },
   unreadCount: { type: Number, default: 0 },
 })
 
+const ROUTE_TO_TAB = {
+  'phone-marketplace': 'buy',
+  'phone-marketplace-watches': 'watches',
+  'phone-marketplace-sell': 'sell',
+}
+
 function go(routeName) {
-  const target = routeName === 'phone-marketplace' ? 'buy' : 'sell'
-  if (target === props.active) return
+  if (ROUTE_TO_TAB[routeName] === props.active) return
   lua.extensions.ui_router.navigate(routeName)
 }
 </script>

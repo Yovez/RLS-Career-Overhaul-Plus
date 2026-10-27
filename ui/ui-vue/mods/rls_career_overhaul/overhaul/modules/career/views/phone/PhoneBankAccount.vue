@@ -76,6 +76,13 @@
           </div>
         </div>
 
+        <BankAutomationPanel
+          v-if="account.type !== 'business'"
+          :account-id="account.id"
+          :account-type="account.accountType || 'checking'"
+          :accounts="accounts"
+        />
+
         <div v-if="account.type !== 'business'" class="settings-section">
           <button class="settings-btn" @click="openRename">
             Rename
@@ -132,6 +139,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DepositModal from '../../components/bank/DepositModal.vue'
 import WithdrawModal from '../../components/bank/WithdrawModal.vue'
 import TransferModal from '../../components/bank/TransferModal.vue'
+import BankAutomationPanel from '../../components/bank/BankAutomationPanel.vue'
 import { lua } from '@/bridge'
 import { useRoute } from 'vue-router'
 import { useEvents } from '@/services/events'
@@ -368,21 +376,19 @@ onBeforeUnmount(() => {
 .phone-account-details {
   padding: 16px;
   padding-top: 60px;
+  padding-bottom: 28px;
   color: #0f172a;
   height: 95%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   box-sizing: border-box;
   position: relative;
-  display: flex;
-  flex-direction: column;
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  min-height: min-content;
 }
 
 .account-header {
@@ -530,9 +536,8 @@ onBeforeUnmount(() => {
   box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 12px rgba(16, 24, 40, .05);
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  margin-bottom: 20px;
+  flex: 0 0 auto;
+  margin-bottom: 16px;
 }
 
 .history-title {
@@ -544,10 +549,9 @@ onBeforeUnmount(() => {
 }
 
 .history-scroll-container {
-  flex: 1;
+  max-height: 220px;
   overflow-y: auto;
   overflow-x: hidden;
-  min-height: 0;
   padding-bottom: 8px;
 
   /* Custom scrollbar matching business computer */

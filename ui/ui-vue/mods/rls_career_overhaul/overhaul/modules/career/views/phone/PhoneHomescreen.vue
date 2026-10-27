@@ -1007,8 +1007,8 @@ async function refreshPhone() {
   }
   waitingForCatalog = false
   setInstalledApps(installedAppIds.value)
-  // The owner already migrated and placed defaults in the opening snapshot.
-  if (!shellState?.layout) await forceEmploymentInstalled()
+  // Re-run placement so newly shipped system/home apps (e.g. Stock Market) land on existing saves.
+  await forceEmploymentInstalled()
   if (disposed) return
   ensureVehicleTransferOnHomescreen()
   notifyDockReady()

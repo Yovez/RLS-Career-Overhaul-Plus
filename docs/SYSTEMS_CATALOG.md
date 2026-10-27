@@ -19,15 +19,17 @@ Where major player-facing systems live. Paths are relative to repo root unless n
 | System | GE | Notes |
 |--------|-----|-------|
 | Bank | `career/economy/bank.lua` | Vue bank modals |
+| Bank automation (**fork**) | `career/economy/bank/automation.lua` | Auto-pay by category (wallet fallback), auto-deposit, balance sweeps, checking auto-invest (broker or tickers); UI on `PhoneBankAccount` / `BankAutomationPanel.vue` |
+| Stock market (**fork**) | `career/economy/stockMarket.lua` | Phone Stock Market app; quotes from `globalEconomy` sectors; manual 0% / broker 5%; save `economy.stockMarket` |
 | Loans / credit | `career/economy/loans.lua`, `credit.lua` | |
-| Payment / wages | `career/economy/payment*` | |
-| Global economy / heat | `globalEconomy.lua`, `activityHeat.lua` | |
+| Payment / wages | `career/economy/payment*` | Routes spend through bank auto-pay when enabled |
+| Global economy / heat | `globalEconomy.lua`, `activityHeat.lua` | Hooks stock quotes each economy tick |
 | Difficulty / XP / economy adjusters | `difficultyMode.lua`, `*AdjusterPolicy.lua`, `economyAdjuster.lua` | |
 | Player attributes / skills XP | `playerAttributes*` | |
 | Cheats / pause time | `cheats.lua`, `pauseTime.lua` | |
 | Wallet / ledger helpers | `lib/ledger/`, `lib/finance/` | UI wallet tile + history |
 
-Gameplay numbers: `gameplay/overhaul/economy/`, `finance/`.
+Gameplay numbers: `gameplay/overhaul/economy/` (incl. `stocks.json`), `finance/`.
 
 ## Work, logistics, deliveries
 
@@ -85,6 +87,8 @@ Vue: `.../career/components/businessComputer/` (+ type-specific tabs).
 | Fast / quick travel | `fastTravel`, `quickTravel` |
 | Dealership / shopping / stock | `career/market/vehicleShopping*` |
 | Marketplace | `career/market/marketplace*` |
+| Phone Marketplace filter / sort (**fork**) | `usePhoneMarketplaceFilters.js` + `PhoneMarketplace.vue` | Buy-tab Filter / Sort for private listings (price, year, miles, make, deal quality, etc.) |
+| Marketplace listing watches (**fork**) | `marketplace/listingWatches.lua` + `PhoneMarketplaceWatches.vue` | Persist type/brand/model watches; notify `marketplace.listingWatch` and deep-link to `phone-marketplace-vehicle` |
 | Auction | `career/market/auction*` |
 | Test drive / valuation | `testDrive*`, `valueCalculator*` |
 

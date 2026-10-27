@@ -31,6 +31,7 @@ export const ACQUISITIONS = Object.freeze({
   "activity.facilityWork": Object.freeze({ extensions: ["overhaul_jobs_facilityWork"], release: [] }),
   "career.employment": Object.freeze({ extensions: ["overhaul_career_work_employment"], release: [] }),
   "career.marketWatch": Object.freeze({ extensions: ["overhaul_career_economy_globalEconomy"], release: [] }),
+  "career.stockMarket": Object.freeze({ extensions: ["overhaul_career_economy_stockMarket"], release: [] }),
   "career.vehicleTransfer": Object.freeze({ extensions: ["overhaul_career_logistics_vehicleTransfer"], release: [] }),
   "career.racingTeam": Object.freeze({ extensions: ["overhaul_career_business_manager", "overhaul_career_business_skillTree"], release: [] }),
   "profiles.challengeModes": Object.freeze({ extensions: ["overhaul_career_challengeModes"], release: [] }),

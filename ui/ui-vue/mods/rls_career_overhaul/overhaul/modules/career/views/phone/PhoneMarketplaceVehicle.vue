@@ -67,6 +67,19 @@
               </div>
             </div>
           </section>
+
+          <div v-if="!isOwn && modelWatch" class="watch-actions">
+            <button
+              type="button"
+              class="watch-btn"
+              :class="{ active: modelWatch.active }"
+              :disabled="watchBusy"
+              @click="toggleModelWatch"
+            >
+              {{ modelWatch.active ? 'Watching this model' : 'Alert me for this model' }}
+            </button>
+            <p class="watch-hint">Alerts only for this model — not the whole brand. Brand / type alerts are on the Alerts tab.</p>
+          </div>
         </div>
       </div>
 
@@ -146,6 +159,8 @@ const shopLoaded = ref(false)
 const ctaInProgress = ref(false)
 const routeInProgress = ref(false)
 const taxiInProgress = ref(false)
+const watchBusy = ref(false)
+const modelWatchActive = ref(false)
 /** Set once a route is placed; offers the taxi as an accept/deny rather than doing it for you. */
 const taxiPrompt = ref(null)
 
@@ -236,12 +251,50 @@ const feedDetail = computed(() => {
       initials: avatarInitials(sellerName),
       avatarBg: avatarColour(sellerName),
     },
-    ctaLabel: 'Make an offer',
-    ctaEnabled: v.negotiationPossible !== false && !(Number(v.discountPercentage) > 0),
+    pendingCheckout: !!v.pendingCheckout,
+    ctaLabel: v.pendingCheckout ? 'Complete purchase' : 'Make an offer',
+    ctaEnabled: !!v.pendingCheckout
+      || (v.negotiationPossible !== false && !(Number(v.discountPercentage) > 0)),
   }
 })
 
 const detail = computed(() => (isOwn.value ? ownDetail.value : feedDetail.value))
+
+const modelWatch = computed(() => {
+  const v = feedVehicle.value
+  const key = String(v?.model_key || '').trim()
+  if (!key) return null
+  const label = [v.Brand, v.Name].filter(Boolean).join(' ') || key
+  return { key, label, active: modelWatchActive.value }
+})
+
+async function refreshWatchState() {
+  const model = modelWatch.value
+  try {
+    if (model) {
+      modelWatchActive.value = !!(await lua.overhaul_career_market_marketplace.hasListingWatch('model', model.key))
+    }
+  } catch (_) {}
+}
+
+async function toggleModelWatch() {
+  const watch = modelWatch.value
+  if (watchBusy.value || !watch) return
+  watchBusy.value = true
+  try {
+    if (modelWatchActive.value) {
+      const list = await lua.overhaul_career_market_marketplace.getListingWatches()
+      const rows = Array.isArray(list) ? list : []
+      const existing = rows.find(w => w.kind === 'model' && String(w.value) === String(watch.key))
+      if (existing?.id) await lua.overhaul_career_market_marketplace.removeListingWatch(existing.id)
+    } else {
+      await lua.overhaul_career_market_marketplace.addListingWatch('model', watch.key, watch.label)
+    }
+    await refreshWatchState()
+  } finally {
+    watchBusy.value = false
+  }
+}
 
 function buildSpecs(power, torque, weight, powerPerTonne) {
   const num = value => {
@@ -312,6 +365,11 @@ async function onCta() {
 
   ctaInProgress.value = true
   try {
+    // Agreed price already locked in — reopen checkout instead of starting a new haggle.
+    if (detail.value?.pendingCheckout) {
+      await lua.overhaul_career_market_vehicleShopping.openPurchaseMenu('instant', props.vehicleId)
+      return
+    }
     const started = await lua.overhaul_career_market_marketplace.startNegotiateSellingOffer(props.vehicleId, true)
     if (started) await lua.extensions.ui_router.navigate('phone-marketplace-negotiate')
   } finally {
@@ -323,6 +381,7 @@ onMounted(async () => {
   if (isOwn.value) return
   feedVehicle.value = await lua.overhaul_career_market_vehicleShopping.getListing(props.vehicleId)
   shopLoaded.value = true
+  await refreshWatchState()
 })
 </script>
 
@@ -536,6 +595,44 @@ onMounted(async () => {
 .seller-role {
   margin-top: 1px;
   font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.watch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.watch-btn {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.85);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &.active {
+    border-color: rgba($mkt-accent, 0.55);
+    background: rgba($mkt-accent, 0.14);
+    color: $mkt-accent-soft;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.watch-hint {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
   color: rgba(255, 255, 255, 0.4);
 }
 

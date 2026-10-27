@@ -103,7 +103,7 @@ import {
 import { useHorizontalSwipeDismiss } from '../../composables/useHorizontalSwipeDismiss'
 
 import { lua } from '@/bridge'
-import { resolveNotificationRoute, installAppFromNotification } from '../../utils/phoneNotificationRoutes'
+import { resolveNotificationRoute, resolveNotificationRouteAsync, installAppFromNotification } from '../../utils/phoneNotificationRoutes'
 import { navigatePhoneRoute } from '../../utils/phoneNavigation'
 
 
@@ -222,13 +222,10 @@ async function onBannerClick(event) {
 
   await installAppFromNotification(lua, item)
 
-  const route = resolveNotificationRoute(item)
+  const route = (await resolveNotificationRouteAsync(lua, item)) || resolveNotificationRoute(item)
 
   if (route) {
-
-
     navigatePhoneRoute(router, route)
-
   }
 
 }

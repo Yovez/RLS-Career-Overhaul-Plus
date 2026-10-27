@@ -30,8 +30,52 @@ export function resolveNotificationAppId(payload) {
   return SOURCE_APP_IDS[source] || null
 }
 
+function buildNamedNotificationRoute(payload) {
+  if (!payload || typeof payload.routeName !== 'string' || !payload.routeName) return null
+  const nested = payload.routeParams && typeof payload.routeParams === 'object' && !Array.isArray(payload.routeParams)
+    ? payload.routeParams
+    : {}
+  const params = {}
+  const kind = payload.routeKind || nested.kind
+  const vehicleId = payload.routeVehicleId || nested.vehicleId
+  if (kind != null && String(kind)) params.kind = String(kind)
+  if (vehicleId != null && String(vehicleId)) params.vehicleId = String(vehicleId)
+  return { name: payload.routeName, params }
+}
+
+/**
+ * Marketplace listing-watch alerts store shopId + modelKey. Shop ids are reused, so resolve
+ * against live private stock before navigating.
+ */
+export async function resolveNotificationRouteAsync(lua, payload) {
+  if (!payload || typeof payload !== 'object') return null
+  const routeName = typeof payload.routeName === 'string' ? payload.routeName : ''
+  const vehicleId = String(payload.routeVehicleId || payload.routeParams?.vehicleId || '').trim()
+  const modelKey = String(payload.routeModelKey || '').trim()
+  if (routeName === 'phone-marketplace-vehicle' && lua?.overhaul_career_market_marketplace?.resolveListingWatchAlert) {
+    try {
+      const resolved = await lua.overhaul_career_market_marketplace.resolveListingWatchAlert(vehicleId, modelKey)
+      if (resolved?.routeName === 'phone-marketplace-vehicle' && resolved.routeVehicleId) {
+        return {
+          name: 'phone-marketplace-vehicle',
+          params: {
+            kind: String(resolved.routeKind || 'listing'),
+            vehicleId: String(resolved.routeVehicleId),
+          },
+        }
+      }
+      if (resolved?.routeName) return { name: String(resolved.routeName), params: {} }
+    } catch (error) {
+      console.warn('[phone] listing watch alert resolve failed', error)
+    }
+  }
+  return resolveNotificationRoute(payload)
+}
+
 export function resolveNotificationRoute(payload) {
   if (!payload || typeof payload !== 'object') return null
+  const named = buildNamedNotificationRoute(payload)
+  if (named) return named
   if (typeof payload.route === 'string' && payload.route) return payload.route
   const appId = resolveNotificationAppId(payload)
   if (!appId) return null

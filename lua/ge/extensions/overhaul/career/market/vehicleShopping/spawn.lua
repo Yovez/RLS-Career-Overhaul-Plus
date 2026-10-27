@@ -220,7 +220,11 @@ function M.new(inputs)
     -- Disposal checks protect every vehicle referencing the garage, even storage exemptions.
     if includeExempt then return 1 end
     local purchase = attempt.purchase
-    if purchase.vehicleInfo.takesNoInventorySpace then return 0 end
+    local vehicleInfo = purchase.vehicleInfo
+    local vehicleMap = require("overhaul/career/garage/inventory/vehicleMap")
+    if vehicleInfo and (vehicleInfo.takesNoInventorySpace or vehicleMap.isTrailer(vehicleInfo)) then
+      return 0
+    end
     local tradeIn = purchase.tradeInVehicleInfo
     local replaced = tradeIn and overhaul_career_garage_inventory.getVehicles()[tradeIn.id]
     if replaced and replaced.owned and overhaul_career_garage_garageManager.vehicleUsesGarageCapacity(replaced, garageId) then return 0 end

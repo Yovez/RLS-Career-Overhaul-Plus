@@ -82,9 +82,45 @@ import { BUILTIN_PHONE_APP_NAMES } from '../../utils/builtinPhoneRoutes.js'
 import { getFeatureRoutes } from '../../utils/uiRouteCatalog.js'
 import { loadRuntimeComponent } from '../../utils/runtimeComponent.js'
 import { isPhoneRoute } from '../../utils/phoneRoutes.js'
-import { reportUiFailure } from '../../utils/safeLua'
+import { reportUiFailure, safeLua } from '../../utils/safeLua'
 
 installLuaBridgeFallbacks()
+
+// While a phone text/number field is focused, block gameplay keybinds (camera 1-9, WASD, etc.).
+const NON_TYPING_INPUT = new Set(['button', 'checkbox', 'radio', 'range', 'file', 'reset', 'submit', 'image', 'color', 'hidden'])
+function isPhoneTypingTarget(el) {
+  if (!el || el.nodeType !== 1) return false
+  const tag = el.tagName
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true
+  if (tag === 'INPUT') return !NON_TYPING_INPUT.has(String(el.type || 'text').toLowerCase())
+  return !!el.isContentEditable
+}
+let phoneTypingActive = false
+function setPhoneTyping(on) {
+  // Always push to Lua — bank popups also call setCEFTyping and can desync this flag.
+  phoneTypingActive = !!on
+  safeLua(() => lua.setCEFTyping(phoneTypingActive), on ? 'phone field typing on' : 'phone field typing off')
+}
+function phoneTypingSessionActive() {
+  return state.value === 'open' || state.value === 'opening'
+}
+// Bank amount popups mount outside .phone-shell; keep CEF typing while they are open.
+function bankPopupTypingHold() {
+  return !!document.querySelector(
+    '.transfer-modal-overlay, .deposit-modal-overlay, .withdraw-modal-overlay, .create-account-modal-overlay'
+  )
+}
+function onPhoneFocusIn(event) {
+  if (!phoneTypingSessionActive()) return
+  if (isPhoneTypingTarget(event.target)) setPhoneTyping(true)
+}
+function onPhoneFocusOut() {
+  requestAnimationFrame(() => {
+    if (!phoneTypingSessionActive()) return
+    if (isPhoneTypingTarget(document.activeElement) || bankPopupTypingHold()) return
+    setPhoneTyping(false)
+  })
+}
 const router = useRouter()
 const route = useRoute()
 const events = useEvents()
@@ -232,6 +268,7 @@ function commitClose(owner = opening) {
     isEntered.value = false
     setPhoneShellVisible(false)
     state.value = 'closed'
+    setPhoneTyping(false)
   }
 }
 function restoreOpen() {
@@ -449,10 +486,18 @@ const bindings = { phone_time_update: updateTime, closePhone: forceClose, phoneL
   phoneShellState: handleOpeningState, phoneShellStatus: handlePhoneShellState }
 for (const [name, listener] of Object.entries(bindings)) events.on(name, listener)
 ensureOpen()
-onMounted(() => { window.addEventListener('resize', updateViewportWidth) })
+onMounted(() => {
+  window.addEventListener('resize', updateViewportWidth)
+  // Capture on document so bank popups (teleported outside .phone-shell) still enable typing.
+  document.addEventListener('focusin', onPhoneFocusIn, true)
+  document.addEventListener('focusout', onPhoneFocusOut, true)
+})
 onUnmounted(() => {
   destroyed = true
   session++
+  document.removeEventListener('focusin', onPhoneFocusIn, true)
+  document.removeEventListener('focusout', onPhoneFocusOut, true)
+  setPhoneTyping(false)
   commitClose()
   finishAnimations()
   clearIntent()

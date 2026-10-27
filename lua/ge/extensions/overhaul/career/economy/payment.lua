@@ -92,9 +92,20 @@ local function canPay(price, accountId)
   return true
 end
 
+local function moneyAmount(price)
+  local info = price and price.money
+  return (info and tonumber(info.amount)) or 0
+end
+
 local function pay(price, reason, accountId, onRecorded)
   servicePolicies.refresh()
   if sponsor.tryCover(price, reason, accountId) then return true end
+
+  -- Auto-pay from a checking account when the caller did not pick an account.
+  if not accountId and overhaul_career_economy_bank and overhaul_career_economy_bank.resolvePayAccount then
+    local resolved = overhaul_career_economy_bank.resolvePayAccount(reason, moneyAmount(price))
+    if resolved then accountId = resolved end
+  end
 
   if not canPay(price, accountId) then return false end
 
@@ -124,6 +135,10 @@ local function reward(price, reason, fullReward, accountId)
     change[currency] = info.amount
   end
   overhaul_career_economy_playerAttributes.addAttributes(change, reason, fullReward)
+  local credited = moneyAmount(price)
+  if credited > 0 and overhaul_career_economy_bank and overhaul_career_economy_bank.maybeAutoDeposit then
+    overhaul_career_economy_bank.maybeAutoDeposit(credited, reason)
+  end
   return true
 end
 

@@ -349,7 +349,13 @@ const testDriveButtonMessage = computed(() => {
 })
 
 const vehicleFitsInventory = computed(() => {
-  if (vehiclePurchaseStore.vehicleInfo.takesNoInventorySpace) return true
+  const info = vehiclePurchaseStore.vehicleInfo || {}
+  // Trailers / no-slot vehicles do not need a free car bay.
+  if (info.takesNoInventorySpace || info.vehOfferType === 'trailer') return true
+  const typeName = String(info.Type || '').toLowerCase()
+  if (typeName === 'trailer' || typeName === 'trailers') return true
+  const label = `${info.Name || ''} ${info.niceName || ''} ${info.Configuration || ''}`
+  if (/\btrailers?\b/i.test(label)) return true
 
   return vehiclePurchaseStore.inventoryHasFreeSlot
 })

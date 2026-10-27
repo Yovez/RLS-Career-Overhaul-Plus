@@ -525,6 +525,7 @@ local function onOverhaulGetUnlockFlagDefinitions(flagDefinitions)
         flagDefinitions[flag] = {
           label = { txt = "ui.career.branchLevel", context = {branch = branch.name, lvl = lvl}},
           level = lvl,
+          branch = id,
           unlockedFunction = function()
             local hasLevel =  getBranchLevel(id) >= lvl
             local isUnlocked = getBranchById(id).unlocked

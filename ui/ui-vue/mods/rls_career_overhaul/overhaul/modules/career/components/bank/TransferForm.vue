@@ -38,6 +38,7 @@
             <span class="input-prefix">$</span>
             <input
               v-model.number="amount"
+              v-bng-text-input
               v-bng-on-ui-nav:focus_l,focus_r,tab_l,tab_r,context,ok.focusRequired="amountNav"
               type="number"
               step="0.01"
@@ -45,7 +46,10 @@
               :max="fromAccountBalance"
               placeholder="0.00"
               class="form-input"
-              @pointerdown="typing.onFocus" @keydown="typing.onFocus" @blur="typing.onBlur"
+              inputmode="decimal"
+              @keydown.stop
+              @keyup.stop
+              @keypress.stop
               required
             />
           </div>
@@ -109,12 +113,8 @@
 <script setup>
 
 import { vBngOnUiNav, vBngScopedNav } from "@/common/directives"
-import { useCefTyping } from "../../composables/useCefTyping.js"
 import { amountValue } from "../../utils/amountValue.js"
-const typing = useCefTyping()
-
 import { reportUiFailure } from "../../utils/safeLua.js"
-
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { lua } from '@/bridge'
 

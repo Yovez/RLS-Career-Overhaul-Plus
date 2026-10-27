@@ -3,7 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { onBeforeUnmount, watch } from "vue"
+import { lua } from "@/bridge"
 import { openOverhaulPopup } from "../../utils/openOverhaulPopup.js"
+import { safeLua } from "../../utils/safeLua.js"
+
+// Bank amount popups mount outside the phone shell, so shell focus listeners never see them.
+// Hold CEF typing for the whole popup so number keys go into the form, not camera binds.
+function setTyping(on) {
+  safeLua(() => lua.setCEFTyping(!!on), on ? "bank popup typing on" : "bank popup typing off")
+}
 
 // Keep the bank's public show/event API while stock popups own maps and focus.
 export function useBankPopup(view, props, emit, successEvent) {
@@ -13,12 +21,14 @@ export function useBankPopup(view, props, emit, successEvent) {
       const closing = current
       current = null
       closing?.return(false)
+      setTyping(false)
       return
     }
     if (current) return
     const host = document.activeElement?.closest?.('.phone-bank-root, .phone-bank-account-root')
     const rect = host?.getBoundingClientRect()
     const appearance = host ? getComputedStyle(host) : null
+    setTyping(true)
     const popup = openOverhaulPopup(view, { ...props }, {
       localBackdrop: true,
       ...(rect ? {
@@ -33,6 +43,7 @@ export function useBankPopup(view, props, emit, successEvent) {
     popup.promise.then(result => {
       if (current !== popup) return
       current = null
+      setTyping(false)
       if (result === true) emit(successEvent)
       emit("close")
     })
@@ -42,5 +53,6 @@ export function useBankPopup(view, props, emit, successEvent) {
     const closing = current
     current = null
     closing?.return(false)
+    setTyping(false)
   })
 }

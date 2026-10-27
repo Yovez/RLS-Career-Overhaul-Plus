@@ -17,9 +17,14 @@ function resolveLuaTarget(router, target) {
       : target
     const resolved = router.resolve(routeTarget)
     if (typeof resolved?.name !== "string" || !resolved.name) return null
+    const params = {}
+    for (const [key, value] of Object.entries(resolved.params || {})) {
+      if (value == null) continue
+      params[key] = String(value)
+    }
     return {
       name: resolved.name,
-      params: resolved.params || {},
+      params,
     }
   } catch (error) {
     console.error("[phoneNavigation] Unable to resolve phone route", target, error)

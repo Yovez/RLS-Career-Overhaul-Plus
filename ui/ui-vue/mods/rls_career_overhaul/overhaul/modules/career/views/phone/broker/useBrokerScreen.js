@@ -53,7 +53,9 @@ export function useBrokerScreen() {
   function changeTab(delta) {
     const tabs = ['markets', 'jobs', 'loaners']
     const index = Math.max(0, tabs.indexOf(s.view))
-    s.selected = null; s.view = tabs[(index + delta + tabs.length) % tabs.length]
+    s.selected = null
+    s.view = tabs[(index + delta + tabs.length) % tabs.length]
+    if (s.view === 'markets') s.clearScope()
   }
   const openEmployment = () => openPhoneRoute(router, 'phone-employment')
   const listEl = ref(null), container = ref(''), selectedCars = ref([]), confirmingAbandon = ref(false)
@@ -597,19 +599,26 @@ export function useBrokerScreen() {
     await refreshBroker()
     if (isUnmounted) return
     const context = s.data.openContext || {}
-    if (context.facility) { s.scope = context.facility; s.chooseMarket('all'); s.expanded = true }
-    if (context.depot) { s.view = 'loaners'; s.expanded = true }
+    // Facility scope sticks in the store across opens. Only keep it when this open
+    // explicitly asked for a facility (post-delivery / computer / deep link).
+    const scopedFacility = context.facility || route.query.facility
+    if (scopedFacility) {
+      s.scope = String(scopedFacility)
+      s.chooseMarket(context.market || 'all')
+      s.expanded = true
+    } else {
+      s.scope = ''
+    }
+    if (context.depot || route.query.depot) { s.view = 'loaners'; s.expanded = true }
     if (context.tab === 'jobs') { s.view = 'jobs'; s.expanded = true }
     // Harness / deep links: open expanded, on a market, on a view, or with a load selected.
-    if (context.market) s.chooseMarket(context.market)
+    if (context.market && !scopedFacility) s.chooseMarket(context.market)
     if (['loads', 'jobs', 'loaners', 'markets'].includes(context.view)) s.view = context.view
     if (context.view === 'filters') { s.view = 'loads'; filtersOpen.value = true }
     if (context.select) s.selected = context.select
     if (context.routeTab) jobsTab.value = 'route'
     if (context.expanded) s.expanded = true
     refreshTimer = setInterval(() => refreshBroker(true), 10000)
-    if (route.query.facility) { s.scope = String(route.query.facility); s.chooseMarket('all'); s.expanded = true }
-    if (route.query.depot) { s.view = 'loaners'; s.expanded = true }
   })
   onUnmounted(() => {
     isUnmounted = true

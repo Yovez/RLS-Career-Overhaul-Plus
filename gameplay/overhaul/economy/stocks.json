@@ -1,0 +1,170 @@
+{
+  "historyLength": 48,
+  "manualFeeRate": 0,
+  "brokerFeeRate": 0.05,
+  "maxBrokerCashPerTicker": 0.25,
+  "brokerTakeProfit": 0.12,
+  "brokerCutLoss": -0.08,
+  "tickers": [
+    {
+      "symbol": "BLSC",
+      "name": "Belasco Auto",
+      "orgId": "belascoAuto",
+      "sector": "vehicleMarket",
+      "basePrice": 42.5,
+      "beta": 1.15
+    },
+    {
+      "symbol": "RICH",
+      "name": "Rich's Motor Company",
+      "orgId": "richsMotorCompany",
+      "sector": "vehicleMarket",
+      "basePrice": 58.0,
+      "beta": 1.25
+    },
+    {
+      "symbol": "JFRS",
+      "name": "Jefferson Motors",
+      "orgId": "jeffersonMotors",
+      "sector": "vehicleMarket",
+      "basePrice": 36.75,
+      "beta": 1.05
+    },
+    {
+      "symbol": "QASY",
+      "name": "Quarryside Auto Sales",
+      "orgId": "quarrysideAutoSales",
+      "sector": "vehicleMarket",
+      "basePrice": 22.4,
+      "beta": 0.95
+    },
+    {
+      "symbol": "TRST",
+      "name": "Trusted Auto Sales",
+      "orgId": "trustedAutoSales",
+      "sector": "vehicleMarket",
+      "basePrice": 31.2,
+      "beta": 1.0
+    },
+    {
+      "symbol": "BRKL",
+      "name": "Bruckell Factory Store",
+      "orgId": "bruckellFactory",
+      "sector": "vehicleMarket",
+      "basePrice": 47.8,
+      "beta": 1.1
+    },
+    {
+      "symbol": "GVRL",
+      "name": "Gavril Certified Trucks",
+      "orgId": "gavrilCertified",
+      "sector": "vehicleMarket",
+      "basePrice": 64.0,
+      "beta": 1.2
+    },
+    {
+      "symbol": "ETKF",
+      "name": "ETK Factory Store",
+      "orgId": "etkFactory",
+      "sector": "vehicleMarket",
+      "basePrice": 71.5,
+      "beta": 1.18
+    },
+    {
+      "symbol": "SHFL",
+      "name": "Shuffleboard Logistics",
+      "orgId": "shuffleboardLogistics",
+      "sector": "jobMarket",
+      "basePrice": 28.6,
+      "beta": 0.9
+    },
+    {
+      "symbol": "SPRM",
+      "name": "Spearleaf Marine Logistics",
+      "orgId": "spearleafMarine",
+      "sector": "jobMarket",
+      "basePrice": 33.1,
+      "beta": 1.05
+    },
+    {
+      "symbol": "RNTB",
+      "name": "Rent-A-Box",
+      "orgId": "rentABox",
+      "sector": "jobMarket",
+      "basePrice": 19.8,
+      "beta": 0.85
+    },
+    {
+      "symbol": "LDA",
+      "name": "Local Delivery Association",
+      "orgId": "localDeliveryAssociation",
+      "sector": "jobMarket",
+      "basePrice": 24.5,
+      "beta": 0.8
+    },
+    {
+      "symbol": "SKTL",
+      "name": "Sketchy Logistics",
+      "orgId": "sketchyLogistics",
+      "sector": "jobMarket",
+      "basePrice": 12.75,
+      "beta": 1.35
+    },
+    {
+      "symbol": "BCCN",
+      "name": "Belasco City Construction",
+      "orgId": "belascoCityConstruction",
+      "sector": "housingMarket",
+      "basePrice": 39.0,
+      "beta": 1.1
+    },
+    {
+      "symbol": "HOTR",
+      "name": "Hot Rolled Inc.",
+      "orgId": "hotRolledInc",
+      "sector": "housingMarket",
+      "basePrice": 27.4,
+      "beta": 1.0
+    },
+    {
+      "symbol": "MGBK",
+      "name": "MoneyGrab Bank",
+      "orgId": "moneyGrabBank",
+      "sector": "global",
+      "basePrice": 55.0,
+      "beta": 0.75
+    },
+    {
+      "symbol": "SALM",
+      "name": "Salmon's Private Bank",
+      "orgId": "salmonsPrivateBank",
+      "sector": "global",
+      "basePrice": 82.0,
+      "beta": 0.65
+    },
+    {
+      "symbol": "SPRF",
+      "name": "Spearleaf Refinery",
+      "orgId": "spearleafRefinery",
+      "sector": "global",
+      "basePrice": 44.25,
+      "beta": 1.0
+    },
+    {
+      "symbol": "FAST",
+      "name": "Fast Automotive",
+      "orgId": "fastAutomotive",
+      "sector": "global",
+      "basePrice": 26.9,
+      "beta": 0.95
+    },
+    {
+      "symbol": "SMASH",
+      "name": "Smash Auto Repairs",
+      "orgId": "smashAutoRepairs",
+      "sector": "global",
+      "basePrice": 15.6,
+      "beta": 0.88
+    }
+  ]
+}

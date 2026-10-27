@@ -5,7 +5,7 @@
 <template>
   <BrokerStyles />
         <div data-broker-scope v-if="s.view === 'loads' && (!s.selected || s.expanded)" class="toolbar">
-          <div data-broker-scope v-if="s.expanded" class="breadcrumb"><button data-broker-scope class="text-btn" @click="s.view = 'markets'">‹ Markets</button><button data-broker-scope v-if="s.scope" class="text-btn" @click="s.scope = ''">All pickups</button></div>
+          <div data-broker-scope v-if="s.expanded" class="breadcrumb"><button data-broker-scope class="text-btn" @click="s.view = 'markets'; s.clearScope()">‹ Markets</button><button data-broker-scope v-if="s.scope" class="text-btn" @click="s.clearScope()">All pickups</button></div>
           <div data-broker-scope class="toolbar-row">
             <input data-broker-scope :value="s.filter.search" v-bng-text-input bng-no-nav="true" placeholder="Search loads" aria-label="Search loads" @input="s.updateFilter('search', $event.target.value)" @keydown.stop @keyup.stop />
             <button data-broker-scope class="icon-btn" :aria-label="`Sort loads: ${sortOptions.find(option => option.value === s.filter.sort)?.label}`" aria-haspopup="dialog" :aria-expanded="sortOpen" @click="sortOpen = true"><BngIcon data-broker-scope :type="icons.sortAsc" /></button>
@@ -22,7 +22,7 @@
         <BrokerRoutePlan @vue:mounted="focusView" v-if="s.view === 'jobs' && jobsTab === 'route' && !s.selected" />
         <div data-broker-scope v-else class="workarea" :class="{ 'has-detail': !!s.selectedRow }">
           <div data-broker-scope v-show="!s.selectedRow || s.expanded" ref="listEl" class="scroll load-list" v-bng-ui-nav-scroll @scroll="rememberScroll">
-            <button data-broker-scope v-if="s.view === 'loads' && s.scope && !s.expanded" class="text-btn scope-clear" @click="s.scope = ''">All pickups</button>
+            <button data-broker-scope v-if="s.view === 'loads' && s.scope" class="text-btn scope-clear" @click="s.clearScope()">Showing one pickup only · All pickups</button>
             <p data-broker-scope v-if="s.expanded" class="list-caption">{{ s.view === 'jobs' ? activeJobs.length : visibleRows.length }} loads <span data-broker-scope v-if="s.view === 'jobs'">{{ s.data.reservationCount }} reserved</span></p>
             <div data-broker-scope class="list-columns" role="row">
               <div data-broker-scope
@@ -73,7 +73,7 @@
               </HouseButton>
             </div>
             </template>
-            <button data-broker-scope v-if="renderedRows.length < visibleRows.length" class="browse-all" @click="rowLimit += 100">Show more loads</button><div data-broker-scope v-if="!visibleRows.length" class="empty"><p data-broker-scope>{{ s.view === 'jobs' ? 'No active loads.' : s.availability === 'locked' ? 'No locked loads match these filters.' : 'No available loads match these filters.' }}</p><button data-broker-scope v-if="s.view === 'loads'" @click="s.resetFilters">Reset filters</button></div>
+            <button data-broker-scope v-if="renderedRows.length < visibleRows.length" class="browse-all" @click="rowLimit += 100">Show more loads</button><div data-broker-scope v-if="!visibleRows.length" class="empty"><p data-broker-scope>{{ s.view === 'jobs' ? 'No active loads.' : s.scope ? 'No loads at this pickup. Show all pickups to browse the full board.' : s.availability === 'locked' ? 'No locked loads match these filters.' : 'No available loads match these filters.' }}</p><button data-broker-scope v-if="s.view === 'loads' && s.scope" class="primary" @click="s.clearScope()">All pickups</button><button data-broker-scope v-else-if="s.view === 'loads'" @click="s.resetFilters">Reset filters</button></div>
           </div>
 <BrokerDetails @vue:mounted="focusView" v-if="s.selectedRow" />
           <aside data-broker-scope v-else class="detail-placeholder" aria-label="Load details"><BngIcon data-broker-scope :type="icons.cardboardBox" /><h3 data-broker-scope>Select a load</h3><p data-broker-scope>Review the route, cargo and requirements here.</p><small data-broker-scope>{{ s.view === 'jobs' ? 'Manage your pickup and delivery.' : 'Reserve a load or save it to your route.' }}</small></aside>

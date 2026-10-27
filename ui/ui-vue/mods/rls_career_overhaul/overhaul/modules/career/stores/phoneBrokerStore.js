@@ -145,6 +145,8 @@ export function unlockLevel(row) {
 }
 export function requirementProgress(reason) {
   if (!(Number(reason.need) > 0)) return null
+  const have = Number(reason.have)
+  if (Number.isFinite(have)) return Math.min(1, Math.max(0, have / Number(reason.need)))
   return Math.min(1, Math.max(0, Number(reason.progress?.percent) || 0))
 }
 export function fitBadge(row) {
@@ -324,7 +326,13 @@ export const usePhoneBrokerStore = defineStore('overhaulPhoneBroker', () => {
   function updateFilter(key, value) {
     preferences.filters[market.value] = { ...defaults(), ...filter.value, [key]: value }; savePreferences()
   }
-  function resetFilters() { preferences.filters[market.value] = defaults(); savePreferences() }
+  function resetFilters() {
+    // Scope is a facility pin, not a listed filter chip; clear it with Reset so the board matches market counts.
+    scope.value = ''
+    preferences.filters[market.value] = defaults()
+    savePreferences()
+  }
+  function clearScope() { scope.value = '' }
   function receiveResult(result) {
     if (result?.requestId !== latestRequestId) return
     stateVersion++
@@ -335,5 +343,5 @@ export const usePhoneBrokerStore = defineStore('overhaulPhoneBroker', () => {
     releaseRequest(result)
   }
   return { data, availability, view, market, selected, expanded, scope, message, resultCount, pending, loaded, containers, preferences, scrolls,
-    filter, rows, selectedRow, receive, refresh, action, chooseMarket, updateFilter, resetFilters, savePreferences, receiveResult, rehydrate }
+    filter, rows, selectedRow, receive, refresh, action, chooseMarket, updateFilter, resetFilters, clearScope, savePreferences, receiveResult, rehydrate }
 })

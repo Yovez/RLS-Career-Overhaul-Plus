@@ -14,11 +14,14 @@
           <label class="form-label">Account Name</label>
           <input
             v-model="accountName"
+            v-bng-text-input
             v-bng-on-ui-nav:ok.focusRequired="suggestName"
             type="text"
             placeholder="e.g., Emergency Fund"
             class="form-input"
-            @pointerdown="typing.onFocus" @keydown="typing.onFocus" @blur="typing.onBlur"
+            @keydown.stop
+            @keyup.stop
+            @keypress.stop
             required
           />
         </div>
@@ -56,6 +59,7 @@
             <span class="input-prefix">$</span>
             <input
               v-model.number="initialDeposit"
+              v-bng-text-input
               v-bng-on-ui-nav:focus_l,focus_r,tab_l,tab_r,context,ok.focusRequired="amountNav"
               type="number"
               step="0.01"
@@ -63,7 +67,10 @@
               :max="walletBalance"
               placeholder="0.00"
               class="form-input"
-              @pointerdown="typing.onFocus" @keydown="typing.onFocus" @blur="typing.onBlur"
+              inputmode="decimal"
+              @keydown.stop
+              @keyup.stop
+              @keypress.stop
             />
           </div>
           <p class="form-hint">Available: ${{ formatCurrency(walletBalance) }}</p>
@@ -84,9 +91,7 @@
 <script setup>
 
 import { vBngOnUiNav } from "@/common/directives"
-import { useCefTyping } from "../../composables/useCefTyping.js"
 import { amountValue } from "../../utils/amountValue.js"
-const typing = useCefTyping()
 
 import { reportUiFailure } from "../../utils/safeLua.js"
 

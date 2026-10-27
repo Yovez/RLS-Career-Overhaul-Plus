@@ -470,6 +470,17 @@ local function ensureDefaultAppsPlaced(layout)
     anchor = entry.id
   end
 
+  -- Undocked system apps still need a home tile (docked ones already show in the dock).
+  local dockDefault = {}
+  for _, id in ipairs(getCatalog().dockIds) do
+    if type(id) == "string" and id ~= "" then dockDefault[id] = true end
+  end
+  for _, id in ipairs(getCatalog().systemIds) do
+    if not removed[id] and not dockDefault[id] and insertMissingApp(layout, id, nil) then
+      changed = true
+    end
+  end
+
   local ids = normalizeInstalledAppIds(layout.installedAppIds)
   local seen = {}
   for _, id in ipairs(ids) do

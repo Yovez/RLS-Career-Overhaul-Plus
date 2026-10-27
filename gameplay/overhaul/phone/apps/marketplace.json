@@ -18,6 +18,13 @@
       "default": true,
       "description": "Buyer offers on your listings",
       "order": 0
+    },
+    {
+      "key": "marketplace.listingWatch",
+      "label": "Listing alerts",
+      "default": true,
+      "description": "A watched type, brand, or model appears on the Marketplace",
+      "order": 1
     }
   ],
   "notificationSources": [
@@ -61,6 +68,14 @@
       "luaOrder": 45,
       "backTarget": "phone-marketplace",
       "props": true
+    },
+    {
+      "name": "phone-marketplace-watches",
+      "path": "phone-marketplace-watches",
+      "component": "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/views/phone/PhoneMarketplaceWatches.vue",
+      "uiOrder": 71,
+      "luaOrder": 46,
+      "backTarget": "phone-marketplace"
     }
   ]
 }

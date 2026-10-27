@@ -1,0 +1,26 @@
+{
+  "id": "overhaul_career_economy_stockMarket",
+  "order": 100,
+  "exports": {
+    "namespace": true,
+    "namespaceGroup": "careerModules",
+    "namespaceOrder": 22,
+    "aliases": [
+      "career_modules_stockMarket"
+    ]
+  },
+  "acquisitions": [
+    {
+      "id": "career.stockMarket",
+      "order": 145,
+      "modes": {
+        "overhaul": true
+      },
+      "extensions": [
+        "overhaul_career_economy_stockMarket"
+      ],
+      "release": [],
+      "namespace": true
+    }
+  ]
+}

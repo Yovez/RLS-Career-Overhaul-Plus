@@ -110,7 +110,7 @@ import {
   applyLockScreenNotificationPrefs,
   applyBannerNotificationPrefs,
 } from "../utils/phoneNotificationPayload"
-import { resolveNotificationRoute, installAppFromNotification } from "../utils/phoneNotificationRoutes"
+import { resolveNotificationRoute, resolveNotificationRouteAsync, installAppFromNotification } from "../utils/phoneNotificationRoutes"
 import { openPhoneRoute } from "../utils/phoneNavigation"
 import { useHorizontalSwipeDismiss } from "../composables/useHorizontalSwipeDismiss"
 
@@ -324,7 +324,7 @@ const handleNotificationClick = async item => {
     dismissCurrentHeadsUp()
   }
   await installAppFromNotification(lua, item)
-  const targetRoute = resolveNotificationRoute(item)
+  const targetRoute = (await resolveNotificationRouteAsync(lua, item)) || resolveNotificationRoute(item)
   if (!targetRoute) return
   openPhoneRoute(router, targetRoute)
 }

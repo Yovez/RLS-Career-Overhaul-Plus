@@ -44,6 +44,8 @@ end
 
 local function vehicleUsesGarageCapacity(vehicle, garageId)
   if not vehicle or vehicle.takesNoInventorySpace then return false end
+  -- Trailers park with your vehicles but do not consume a car slot (starter 1-car garages stay usable).
+  if vehicleMap.isTrailer(vehicle) then return false end
   local homeGarage = vehicleMap.homeGarage(vehicle)
   local level, reason = vehicleMap.resolve(vehicle)
   if reason == 'ambiguous' or (level and level ~= getCurrentLevelIdentifier()) then return false end
@@ -115,7 +117,8 @@ function M.isGarageSpace(garage, inventoryId)
   -- saves already over capacity. A matching garage id alone is not proof.
   local retainsReservation = incoming and vehicleMap.resolve(incoming) == getCurrentLevelIdentifier()
     and vehicleUsesGarageCapacity(incoming, garage)
-  return {(incoming and incoming.takesNoInventorySpace) or retainsReservation or info.freeSlots > 0, info.freeSlots}
+  local freeSpaceVehicle = incoming and (incoming.takesNoInventorySpace or vehicleMap.isTrailer(incoming))
+  return {freeSpaceVehicle or retainsReservation or info.freeSlots > 0, info.freeSlots}
 end
 
 function M.getGarageCapacityData()

@@ -84,6 +84,9 @@ function bindings.new(inputs)
       vehicles[inventoryId].configBaseValue =
         (catalogProfile and catalogProfile.catalogValue) or baseConfig.Value
       vehicles[inventoryId].takesNoInventorySpace = baseConfig.takesNoInventorySpace
+        or require('overhaul/career/garage/inventory/vehicleMap').isTrailer({
+          model = vehicle.JBeam, JBeam = vehicle.JBeam, key = configName, config = vehicleData.config,
+        }) or nil
 
       if type(niceName) ~= "string" or niceName == "" then
         local configInfo = baseConfig or core_vehicles.getConfig(vehicle.JBeam, configName)
@@ -160,6 +163,17 @@ function bindings.new(inputs)
       local _, configName = path.splitWithoutExt(vehicleData.config.partConfigFilename)
       local baseConfig = core_vehicles.getConfig(vehicle.JBeam, configName)
       takesNoInventorySpace = baseConfig and baseConfig.takesNoInventorySpace
+    end
+    local vehicleMap = require('overhaul/career/garage/inventory/vehicleMap')
+    local trailerConfigName = nil
+    if vehicleData.config and vehicleData.config.partConfigFilename then
+      local _, configName = path.splitWithoutExt(vehicleData.config.partConfigFilename)
+      trailerConfigName = configName
+    end
+    if takesNoInventorySpace == nil and vehicleMap.isTrailer({
+      model = vehicle.JBeam, JBeam = vehicle.JBeam, config = vehicleData.config, key = trailerConfigName,
+    }) then
+      takesNoInventorySpace = true
     end
     -- Gifts can arrive before a garage exists, so they bypass capacity and still persist.
     local replacement = options.replacingInventoryId and vehicles[options.replacingInventoryId]

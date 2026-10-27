@@ -7,7 +7,7 @@ local CARD_FIELDS = {
   'Power', 'Torque', 'Weight', 'Drivetrain', 'Transmission', 'Fuel Type', 'Body Style',
   'Config Type', 'Country', 'Top Speed', '0-60 mph', '0-100 km/h',
   'sellerId', 'sellerName', 'salesChannel', 'remotePurchaseAllowed', 'garageDeliveryAllowed',
-  'deliveryDiscount', 'negotiationPossible', 'discountPercentage',
+  'deliveryDiscount', 'negotiationPossible', 'discountPercentage', 'pendingCheckout',
   'distance', 'quickTravelPrice', 'soldViewCounter', '__sold', '__soldAt',
 }
 

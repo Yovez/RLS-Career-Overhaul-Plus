@@ -651,6 +651,12 @@ function M.new(inputs)
   local function buildPurchaseData(purchaseData, vehicleInfo, businessId)
     local playerMoney = overhaul_career_economy_playerAttributes.getAttributeValue("money")
     local racingTeamBusinessMoney = nil
+    -- Stamp trailer listings so the purchase UI skips the car-slot gate even when garage is full.
+    local vehicleMap = require("overhaul/career/garage/inventory/vehicleMap")
+    if vehicleInfo and vehicleMap.isTrailer(vehicleInfo) then
+      vehicleInfo.takesNoInventorySpace = true
+      purchaseData.vehicleInfo.takesNoInventorySpace = true
+    end
     local inventoryHasFreeSlot = dependencies.purchase.hasInventorySlotForPurchase()
     if businessId then
       local fleetType = purchaseData.fleetBusinessType or state.fleetBusinessType

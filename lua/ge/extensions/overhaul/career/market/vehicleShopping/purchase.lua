@@ -64,7 +64,8 @@ function M.new(inputs)
 
   local function hasInventorySlotForPurchase()
     local vehicleInfo = state.purchaseData and state.purchaseData.vehicleInfo
-    return (vehicleInfo and vehicleInfo.takesNoInventorySpace)
+    local vehicleMap = require('overhaul/career/garage/inventory/vehicleMap')
+    return (vehicleInfo and (vehicleInfo.takesNoInventorySpace or vehicleMap.isTrailer(vehicleInfo)))
       or overhaul_career_garage_inventory.hasFreeSlot() or service.tradeInFreesInventorySlot()
   end
 
@@ -85,9 +86,37 @@ function M.new(inputs)
     return state.purchaseData.attemptPrice
   end
 
+  local function vehiclePurchaseReason(inventoryId, label)
+    local info = state.purchaseData.vehicleInfo
+    local seller = dependencies.getDealershipForSellerId(info.sellerId)
+    local pending = state.pendingPurchase
+    return {
+      category = "purchase",
+      finance = {
+        vehicleId = inventoryId or (pending and pending.purchaseData == state.purchaseData and pending.inventoryId or nil),
+        vehicleName = info.niceName,
+        locationId = seller and seller.id,
+        locationName = seller and seller.name,
+      },
+      tags = { "vehicleBought", "buying" },
+      label = label or string.format("Bought a vehicle: %s", info.niceName),
+    }
+  end
+
+  local function canAffordMoney(amount)
+    if overhaul_career_economy_cheats.isCheatsMode() then return true end
+    amount = tonumber(amount) or 0
+    local wallet = overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
+    if wallet >= amount then return true end
+    local bank = overhaul_career_economy_bank
+    if bank and bank.resolvePayAccount then
+      return bank.resolvePayAccount(vehiclePurchaseReason(nil, "vehicle afford check"), amount) ~= nil
+    end
+    return false
+  end
+
   local function canAffordAttemptPrice()
-    return overhaul_career_economy_cheats.isCheatsMode()
-      or overhaul_career_economy_playerAttributes.getAttributeValue("money") >= state.purchaseData.attemptPrice
+    return canAffordMoney(state.purchaseData.attemptPrice or 0)
   end
 
   local function hasNoGarage()
@@ -99,7 +128,9 @@ function M.new(inputs)
   local function garageHasFreeSpace(garageId)
     local spaceInfo = overhaul_career_garage_garageManager.isGarageSpace(garageId)
     local vehicle = state.purchaseData and state.purchaseData.vehicleInfo
-    return spaceInfo and (spaceInfo[1] or (vehicle and vehicle.takesNoInventorySpace
+    local vehicleMap = require('overhaul/career/garage/inventory/vehicleMap')
+    local freeSpaceVehicle = vehicle and (vehicle.takesNoInventorySpace or vehicleMap.isTrailer(vehicle))
+    return spaceInfo and (spaceInfo[1] or (freeSpaceVehicle
       and overhaul_world_facilities.getFacilityIfExists("garage", garageId)
       and overhaul_career_garage_garageManager.isPurchasedGarage(garageId)
       and not overhaul_career_garage_garageManager.isGarageForSale(garageId)))
@@ -129,8 +160,10 @@ function M.new(inputs)
     if not dealership or not dependencies.getSellerAccessInfo(dealership).garageDeliveryAllowed then return result end
     local capacityData = overhaul_career_garage_garageManager.getGarageCapacityData() or {}
     local vehicle = state.purchaseData and state.purchaseData.vehicleInfo
+    local vehicleMap = require('overhaul/career/garage/inventory/vehicleMap')
+    local freeSpaceVehicle = vehicle and (vehicle.takesNoInventorySpace or vehicleMap.isTrailer(vehicle))
     for garageId, info in pairs(capacityData) do
-      if (vehicle and vehicle.takesNoInventorySpace) or (tonumber(info.freeSlots) or 0) > 0 then
+      if freeSpaceVehicle or (tonumber(info.freeSlots) or 0) > 0 then
         local garage = overhaul_world_facilities.getFacility("garage", garageId)
         if garage then
           table.insert(result, {
@@ -196,7 +229,7 @@ function M.new(inputs)
       price = price + (tonumber(quote.finalPrice) or 0)
     end
     if options.licensePlateText then price = price + (tonumber(prices.customLicensePlate) or 0) end
-    if not cheats and (tonumber(overhaul_career_economy_playerAttributes.getAttributeValue("money")) or 0) < price then
+    if not cheats and not canAffordMoney(price) then
       return false, "funds"
     end
     if hasNoGarage() then return false, "garage" end
@@ -254,25 +287,13 @@ function M.new(inputs)
       label = label .. string.format(" and traded in vehicle id %d: %s", state.purchaseData.tradeInVehicleInfo.id,
         state.purchaseData.tradeInVehicleInfo.niceName)
     end
-    local info = state.purchaseData.vehicleInfo
-    local seller = dependencies.getDealershipForSellerId(info.sellerId)
-    local pending = state.pendingPurchase
-    overhaul_career_economy_playerAttributes.addAttributes({
-      money = -attemptCharge()
-    }, {
-      category = "purchase",
-      finance = {
-        vehicleId = inventoryId or (pending and pending.purchaseData == state.purchaseData and pending.inventoryId or nil),
-        vehicleName = info.niceName,
-        locationId = seller and seller.id, locationName = seller and seller.name,
-      },
-      tags = { "vehicleBought", "buying" },
-      label = label
-    }, nil, function(record)
+    local charge = attemptCharge()
+    local reason = vehiclePurchaseReason(inventoryId, label)
+    overhaul_career_economy_payment.pay({ money = { amount = charge } }, reason, nil, function(record)
       if state.personalPurchaseAttempt then state.personalPurchaseAttempt.financeRecord = record end
     end)
     if state.personalPurchaseAttempt then
-      state.personalPurchaseAttempt.paid = attemptCharge()
+      state.personalPurchaseAttempt.paid = charge
     end
     local saleSource = overhaul_career_garage_inventory.getVehicleSaleSource("carMeet")
     if state.purchaseData.vehicleInfo and state.purchaseData.vehicleInfo.source == "carMeet"
@@ -291,6 +312,7 @@ function M.new(inputs)
       if shopVehicleId == targetShopId then
         shopVehicle.markedSold = true
         shopVehicle.soldViewCounter = 1
+        shopVehicle.pendingCheckout = nil
         state.pendingSoldShopIds[state.purchaseData.shopId] = true
         table.remove(state.vehiclesInShop, index)
         break
@@ -880,8 +902,7 @@ function M.new(inputs)
     end
     local blockReason = service.getCarMeetPurchaseBlockReason()
     if blockReason then return false, blockReason end
-    if not (overhaul_career_economy_cheats.isCheatsMode()
-        or overhaul_career_economy_playerAttributes.getAttributeValue("money") >= state.purchaseData.prices.finalPrice) then
+    if not canAffordMoney(state.purchaseData.prices.finalPrice) then
       return false, "You cannot afford this vehicle."
     end
 
