@@ -494,6 +494,12 @@ local function addVehicleListing(entry, timestamp)
   if not veh or findVehicleListing(inventoryId) then
     return false
   end
+  local vehicleRentals = overhaul_career_market_vehicleRentals
+  if vehicleRentals and ((vehicleRentals.isListedForRent and vehicleRentals.isListedForRent(inventoryId))
+      or (vehicleRentals.isRentedOut and vehicleRentals.isRentedOut(inventoryId))
+      or veh.rentedOut) then
+    return false
+  end
 
   -- Damage at listing is priced in; only damage after listing blocks acceptance.
   local needsRepairAtListing = listingNeedsRepair(inventoryId)
@@ -1345,6 +1351,36 @@ M.declineOfferById = declineOfferById
 M.declineOffer = deleteOffer
 M.listVehicles = listVehicles
 M.findVehicleListing = findVehicleListing
+
+-- Vehicle rentals facade
+function M.listVehicleForRent(inventoryId, askingDaily)
+  local rentals = overhaul_career_market_vehicleRentals
+  return rentals and rentals.listForRent and rentals.listForRent(inventoryId, askingDaily)
+end
+function M.removeVehicleRentListing(inventoryId)
+  local rentals = overhaul_career_market_vehicleRentals
+  return rentals and rentals.removeListing and rentals.removeListing(inventoryId)
+end
+function M.getVehicleRentListings()
+  local rentals = overhaul_career_market_vehicleRentals
+  return rentals and rentals.getListings and rentals.getListings() or {}
+end
+function M.getActiveVehicleRentals()
+  local rentals = overhaul_career_market_vehicleRentals
+  return rentals and rentals.getActiveRentals and rentals.getActiveRentals() or {}
+end
+function M.acceptVehicleRentOffer(inventoryId, offerIndex)
+  local rentals = overhaul_career_market_vehicleRentals
+  return rentals and rentals.acceptOffer and rentals.acceptOffer(inventoryId, offerIndex)
+end
+function M.startNegotiateVehicleRentOffer(inventoryId, offerIndex, fromPhone)
+  local rentals = overhaul_career_market_vehicleRentals
+  return rentals and rentals.startNegotiateRentOffer and rentals.startNegotiateRentOffer(inventoryId, offerIndex, fromPhone)
+end
+function M.endVehicleRentalEarly(inventoryId)
+  local rentals = overhaul_career_market_vehicleRentals
+  return rentals and rentals.endRentalEarly and rentals.endRentalEarly(inventoryId)
+end
 M.openMenu = openMenu
 M.removeVehicleListing = removeVehicleListing
 M.updateListingValue = updateListingValue

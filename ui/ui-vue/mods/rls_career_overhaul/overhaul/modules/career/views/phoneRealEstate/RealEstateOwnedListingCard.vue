@@ -4,30 +4,50 @@
 
 <script setup>
 import { vPhoneNumber } from "../../components/phone/phoneNumber.js"
-// One owned property in the listings view: its status, the asking price input and the
-// actions that depend on that status. The parent holds the price and guidance per
-// garage and runs every bridge call; this card reports the price edit and the taps.
+// One owned property in the listings view: sale listing, rent listing, or active landlord lease.
 import { computed } from 'vue'
 import { vBngTextInput } from '@/common/directives'
 import { formatPrice } from './realEstateFormat'
 
-defineOptions({ directives: { BngTextInput: vBngTextInput } })
+defineOptions({ directives: { BngTextInput: vBngTextInput, PhoneNumber: vPhoneNumber } })
 
 const props = defineProps({
   garage: { type: Object, required: true },
   imageFailed: { type: Boolean, default: false },
   price: { type: [Number, String], default: undefined },
   guidance: { type: Object, default: null },
+  rent: { type: [Number, String], default: undefined },
+  rentGuidance: { type: Object, default: null },
 })
 
 const emit = defineEmits([
   'image-error', 'update:price', 'check-price', 'list-for-sale', 'move-out', 'reclaim', 'view-offers', 'remove-listing',
+  'update:rent', 'check-rent', 'list-for-rent', 'view-rent-offers', 'remove-rent-listing', 'end-landlord-lease',
 ])
 
-// v-model.number writes through this computed, so the parent receives the parsed number.
 const priceInput = computed({
   get: () => props.price,
   set: value => emit('update:price', value),
+})
+
+const rentInput = computed({
+  get: () => props.rent,
+  set: value => emit('update:rent', value),
+})
+
+const listForRentHint = computed(() => {
+  const reason = props.garage?.listForRentReason
+  if (!reason) return ''
+  const map = {
+    primaryHome: 'Set another primary home first.',
+    onlyHome: 'You need more than one owned property.',
+    vehiclesPresent: 'Move all vehicles out first.',
+    listedForSale: 'Remove the sale listing first.',
+    alreadyListed: 'Already listed for rent.',
+    alreadyRented: 'Already rented out.',
+    businessBundle: 'Business bundle property.',
+  }
+  return map[reason] || 'Cannot list for rent.'
 })
 </script>
 
@@ -43,7 +63,9 @@ const priceInput = computed({
       <div class="card-badges">
         <span v-if="garage.canReclaim" class="badge free">RECLAIM</span>
         <span v-if="garage.isRented" class="badge rented">RENTED</span>
-        <span v-if="garage.isListed" class="badge listed">LISTED</span>
+        <span v-if="garage.isLandlordRented" class="badge rented">TENANT</span>
+        <span v-if="garage.isListed" class="badge listed">FOR SALE</span>
+        <span v-if="garage.isListedForRent" class="badge listed">FOR RENT</span>
         <span v-if="garage.isStarter" class="badge starter">STARTER</span>
         <span v-else-if="garage.isGranted" class="badge starter">GRANTED</span>
       </div>
@@ -59,7 +81,12 @@ const priceInput = computed({
             {{ garage.vehicleCount }}/{{ garage.capacity }}
           </span>
           <span v-if="garage.canReclaim" class="meta-item">Previously granted — reclaim free</span>
-          <span v-else-if="garage.offerCount" class="meta-item offer-count">{{ garage.offerCount }} offer(s)</span>
+          <span v-else-if="garage.isLandlordRented" class="meta-item listing-active">
+            Tenant: {{ garage.landlordLease?.tenantName || 'Active' }} · ${{ formatPrice(garage.landlordLease?.monthlyRent || garage.landlordLease?.agreedRent || 0) }}/period
+          </span>
+          <span v-else-if="garage.rentOfferCount" class="meta-item offer-count">{{ garage.rentOfferCount }} rent offer(s)</span>
+          <span v-else-if="garage.offerCount" class="meta-item offer-count">{{ garage.offerCount }} sale offer(s)</span>
+          <span v-else-if="garage.isListedForRent" class="meta-item listing-active">Rent ask: ${{ formatPrice(garage.askingRent) }}</span>
           <span v-else-if="garage.isListed" class="meta-item listing-active">Listed: ${{ formatPrice(garage.askingPrice) }}</span>
           <span v-else class="meta-item">Not listed</span>
         </div>
@@ -79,10 +106,20 @@ const priceInput = computed({
     </div>
 
     <div class="listings-actions" v-else-if="garage.isRented">
-      <p class="listing-guidance guidance-fair">Rented property — cannot list for sale.</p>
+      <p class="listing-guidance guidance-fair">Rented property — cannot list for sale or rent out.</p>
     </div>
 
-    <div class="listings-actions" v-else-if="garage.isGranted && !garage.isListed">
+    <div class="listings-actions" v-else-if="garage.isLandlordRented">
+      <p class="listing-guidance guidance-fair">
+        Rented to {{ garage.landlordLease?.tenantName || 'a tenant' }} ({{ garage.landlordLease?.type || 'lease' }}).
+        Garage is locked until the lease ends.
+      </p>
+      <button class="act-btn decline listings-full-btn" @click="emit('end-landlord-lease')">
+        End Lease Early
+      </button>
+    </div>
+
+    <div class="listings-actions" v-else-if="garage.isGranted && !garage.isListed && !garage.isListedForRent">
       <p class="listing-guidance guidance-fair">
         Granted property — no refund if you move out.
       </p>
@@ -99,7 +136,29 @@ const priceInput = computed({
       </p>
     </div>
 
-    <div class="listings-actions" v-else-if="!garage.isListed">
+    <div class="listings-actions" v-else-if="garage.isListedForRent">
+      <div class="listings-listed-row">
+        <button class="act-btn negotiate" @click="emit('view-rent-offers')">
+          View Rent Offers<span v-if="garage.rentOfferCount"> ({{ garage.rentOfferCount }})</span>
+        </button>
+        <button class="act-btn route" @click="emit('remove-rent-listing')">
+          Remove Listing
+        </button>
+      </div>
+    </div>
+
+    <div class="listings-actions" v-else-if="garage.isListed">
+      <div class="listings-listed-row">
+        <button class="act-btn negotiate" @click="emit('view-offers')">
+          View Offers<span v-if="garage.offerCount"> ({{ garage.offerCount }})</span>
+        </button>
+        <button class="act-btn route" @click="emit('remove-listing')">
+          Remove Listing
+        </button>
+      </div>
+    </div>
+
+    <div class="listings-actions" v-else>
       <div class="listing-price-row">
         <input
           v-model.number="priceInput"
@@ -121,25 +180,45 @@ const priceInput = computed({
       >
         List for Sale
       </button>
-    </div>
 
-    <div class="listings-actions" v-else>
-      <div class="listings-listed-row">
-        <button class="act-btn negotiate" @click="emit('view-offers')">
-          View Offers<span v-if="garage.offerCount"> ({{ garage.offerCount }})</span>
-        </button>
-        <button class="act-btn route" @click="emit('remove-listing')">
-          Remove Listing
-        </button>
+      <div class="rent-scale" style="margin-top: 10px;">
+        <div class="rent-scale-head">
+          <span>Asking rent</span>
+          <strong>Market ${{ formatPrice(garage.marketRent || 0) }}/period</strong>
+        </div>
+        <input
+          v-model.number="rentInput"
+          type="number"
+          min="0"
+          step="50"
+          placeholder="Asking rent"
+          class="listing-price-input"
+          v-bng-text-input
+          v-phone-number="50"
+        />
+        <button class="act-btn route listings-full-btn" @click="emit('check-rent')">Check Rent</button>
       </div>
+      <p v-if="rentGuidance" class="listing-guidance" :class="`guidance-${rentGuidance.tier || 'fair'}`">
+        {{ rentGuidance.label || 'Rent check' }}: {{ rentGuidance.description || '' }}
+        <span v-if="rentGuidance.marketRent"> (market ${{ formatPrice(rentGuidance.marketRent) }})</span>
+      </p>
+      <button
+        class="act-btn negotiate listings-full-btn"
+        :disabled="!garage.canListForRent"
+        :title="garage.canListForRent ? 'List this property for rent' : listForRentHint"
+        @click="emit('list-for-rent')"
+      >
+        List for Rent
+      </button>
+      <p v-if="!garage.canListForRent && listForRentHint" class="listing-guidance guidance-high">
+        {{ listForRentHint }}
+      </p>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 @use "@/styles/rls_career_overhaul/modules/career/views/phoneRealEstate/shared";
-
-// One owned property in the listings view. Owned by RealEstateOwnedListingCard.vue.
 
 .listings-card {
   background: #1a1a1a;
@@ -248,4 +327,19 @@ const priceInput = computed({
 
   .act-btn { flex: 1; justify-content: center; }
 }
+
+.rent-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rent-scale-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+}
+
+.rent-scale-head strong { color: #fff; font-size: 13px; }
 </style>

@@ -191,7 +191,7 @@ local function processDailyPayment(garageId, mortgage)
   local interestPortion = math.floor((getRemainingBalance(mortgage) * periodRate) + 0.5)
   payment = math.min(payment, getRemainingBalance(mortgage) + interestPortion)
 
-  if propertyMoney.canAfford(payment) and propertyMoney.applyMoneyDelta(-payment, garageId) then
+  if propertyMoney.canAfford(payment, garageId) and propertyMoney.applyMoneyDelta(-payment, garageId) then
     recordPaidInstallment(garageId, mortgage, payment, interestPortion)
     return
   end
@@ -310,7 +310,7 @@ function M.createMortgage(garageId, purchasePrice, selectedTerm, downPaymentAlre
   local monthlyPayment = calculatePayment(principal, interestRate, term)
 
   if not downPaymentAlreadyPaid then
-    if not propertyMoney.canAfford(downPayment) or not propertyMoney.applyMoneyDelta(-downPayment, garageId) then
+    if not propertyMoney.canAfford(downPayment, garageId) or not propertyMoney.applyMoneyDelta(-downPayment, garageId) then
       return nil
     end
   end
@@ -410,7 +410,7 @@ function M.payoffMortgage(garageId)
     return true
   end
 
-  if not propertyMoney.canAfford(remaining) or not propertyMoney.applyMoneyDelta(-remaining, garageId) then
+  if not propertyMoney.canAfford(remaining, garageId) or not propertyMoney.applyMoneyDelta(-remaining, garageId) then
     return false
   end
 
@@ -447,7 +447,7 @@ function M.prepayMortgage(garageId, amount)
   end
 
   amount = math.min(amount, remaining)
-  if not propertyMoney.canAfford(amount) or not propertyMoney.applyMoneyDelta(-amount, garageId) then return { error = "insufficient_funds" } end
+  if not propertyMoney.canAfford(amount, garageId) or not propertyMoney.applyMoneyDelta(-amount, garageId) then return { error = "insufficient_funds" } end
 
   mortgage.remainingBalance = math.max(0, remaining - amount)
 

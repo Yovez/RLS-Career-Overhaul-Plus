@@ -19,8 +19,8 @@
       :their-offer="Number(state.theirOffer) || 0"
       :my-offer="state.myOffer != null ? Number(state.myOffer) : null"
       :starting-price="Number(state.startingPrice) || 0"
-      :step="1000"
-      :step-sizes="[1000, 10000]"
+      :step="isRent ? 50 : 1000"
+      :step-sizes="isRent ? [50, 250] : [1000, 10000]"
       :resolved-title="resolvedTitle"
       :resolved-title-amount="state.negotiationStatus === 'accepted' && !state.purchaseFailureReason ? Number(state.theirOffer || 0) : null"
       :resolved-text="resolvedStatusText"
@@ -70,9 +70,16 @@ const state = ref({
   amISelling: false,
   isInsulted: false,
   origin: 'computer',
+  isRent: false,
+  negotiationKind: 'sale',
+  priceUnit: '',
 })
 
-const opponent = computed(() => state.value.amISelling ? "Buyer" : "Seller")
+const isRent = computed(() => state.value.isRent === true || state.value.negotiationKind === 'rent')
+const opponent = computed(() => {
+  if (isRent.value) return state.value.amISelling ? 'Tenant' : 'Landlord'
+  return state.value.amISelling ? 'Buyer' : 'Seller'
+})
 const biggerIsBetter = computed(() => state.value.amISelling ? true : false)
 
 const increaseOfferDisabled = computed(() => {
@@ -117,7 +124,8 @@ const isDiffPercentOfferPreviewToMarketGood = computed(() => {
 })
 
 const nudgeOffer = (delta) => {
-  const roundedOfferPreview = Math.max(0, Math.round((offerPreview.value + delta) / 1000) * 1000)
+  const step = isRent.value ? 50 : 1000
+  const roundedOfferPreview = Math.max(0, Math.round((offerPreview.value + delta) / step) * step)
   let min = 0
   let max = Number.POSITIVE_INFINITY
 
@@ -157,11 +165,15 @@ const noDeal = computed(() => {
 const resolvedStatusText = computed(() => {
   if (state.value.negotiationStatus === 'failed') {
     if (state.value.amISelling) {
-      return 'The other party ran out of patience and does not want to buy this property.'
+      return isRent.value
+        ? 'The tenant ran out of patience and walked away from this rental.'
+        : 'The other party ran out of patience and does not want to buy this property.'
     }
     return 'The seller ran out of patience. You can still buy at the starting price: '
   } else if (state.value.negotiationStatus === 'accepted') {
-    return 'You negotiated a deal for ' + (state.value.propertyName || 'this property') + '.'
+    return isRent.value
+      ? 'You negotiated a rent deal for ' + (state.value.propertyName || 'this property') + '.'
+      : 'You negotiated a deal for ' + (state.value.propertyName || 'this property') + '.'
   }
   return ''
 })
@@ -169,11 +181,12 @@ const resolvedStatusText = computed(() => {
 const chatWindow = ref(null)
 const propertyMeta = computed(() => {
   const meta = []
+  if (isRent.value) meta.push({ icon: icons.garage01, text: 'Rent per period' })
   if (state.value.propertyCapacity) meta.push({ icon: icons.garage01, text: `${state.value.propertyCapacity} slots, ${state.value.propertyParkingSpots || 0} parking` })
   return meta
 })
 const resolvedTone = computed(() => (state.value.negotiationStatus === "accepted" ? "ok" : "bad"))
-const resolvedTitle = computed(() => (state.value.negotiationStatus === "accepted" ? "Deal at" : "No deal"))
+const resolvedTitle = computed(() => (state.value.negotiationStatus === "accepted" ? (isRent.value ? "Rent deal at" : "Deal at") : "No deal"))
 const resolvedActionText = computed(() => (state.value.amISelling ? "Continue" : "Go to Purchase Menu"))
 const showStartingPriceHint = computed(() => state.value.negotiationStatus === "failed" && !state.value.amISelling)
 const onSend = price => {

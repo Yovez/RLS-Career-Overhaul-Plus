@@ -20,7 +20,7 @@ Where major player-facing systems live. Paths are relative to repo root unless n
 |--------|-----|-------|
 | Bank | `career/economy/bank.lua` | Vue bank modals |
 | Bank automation (**fork**) | `career/economy/bank/automation.lua` | Auto-pay by category (wallet fallback), auto-deposit, balance sweeps, checking auto-invest (broker or tickers); UI on `PhoneBankAccount` / `BankAutomationPanel.vue` |
-| Stock market (**fork**) | `career/economy/stockMarket.lua` | Phone Stock Market app; quotes from `globalEconomy` sectors; manual 0% / broker 5%; save `economy.stockMarket` |
+| Stock market (**fork**) | `career/economy/stockMarket.lua` | Phone Stock Market; sector quotes + dividends; manual 0%; broker buy-only (balanced) with 5% sell fee on withdraw; save `economy.stockMarket` |
 | Loans / credit | `career/economy/loans.lua`, `credit.lua` | |
 | Payment / wages | `career/economy/payment*` | Routes spend through bank auto-pay when enabled |
 | Global economy / heat | `globalEconomy.lua`, `activityHeat.lua` | Hooks stock quotes each economy tick |
@@ -83,10 +83,12 @@ Vue: `.../career/components/businessComputer/` (+ type-specific tabs).
 |--------|-----|
 | Garage manager / inventory / computer | `career/garage/*` |
 | Property / mortgage / rentals / real estate | `career/garage/property*` |
+| Landlord property rentals (**fork**) | `property/propertyLandlord.lua` + Real Estate Listings UI | List owned garages for rent; NPC tenant offers/leases; capacity/primary/sale locks |
 | Studio rentals | `career/garage/studioRentals*` |
 | Fast / quick travel | `fastTravel`, `quickTravel` |
 | Dealership / shopping / stock | `career/market/vehicleShopping*` |
 | Marketplace | `career/market/marketplace*` |
+| Vehicle rentals (**fork**) | `market/vehicleRentals.lua` + `PhoneMarketplaceRentals.vue` | Rent out owned vehicles from Marketplace Sell → Rentals; typed daily rate + guidance; prepaid terms + return damage |
 | Phone Marketplace filter / sort (**fork**) | `usePhoneMarketplaceFilters.js` + `PhoneMarketplace.vue` | Buy-tab Filter / Sort for private listings (price, year, miles, make, deal quality, etc.) |
 | Marketplace listing watches (**fork**) | `marketplace/listingWatches.lua` + `PhoneMarketplaceWatches.vue` | Persist type/brand/model watches; notify `marketplace.listingWatch` and deep-link to `phone-marketplace-vehicle` |
 | Auction | `career/market/auction*` |

@@ -13,11 +13,17 @@ local function getGarageLabel(deps, garageId)
   return (facility and facility.name) or ("Garage " .. tostring(garageId))
 end
 
-local function canAfford(deps, amount)
+local function canAfford(deps, opts, amount, garageId, context)
   if amount <= 0 then return true end
   local payment, attributes = deps()
   if payment and payment.canPay then
-    return payment.canPay({money = {amount = amount, canBeNegative = false}})
+    local category = context and context.category or opts.category
+    local reason = require("overhaul/lib/finance/metadata").tag(
+      { label = opts.label, description = opts.payDescription },
+      category,
+      { vehicleRelated = false, locationId = garageId }
+    )
+    return payment.canPay({ money = { amount = amount, canBeNegative = false } }, nil, reason)
   end
   local money = (attributes and attributes.getAttributeValue and attributes.getAttributeValue("money")) or 0
   return money >= amount
@@ -77,8 +83,8 @@ function M.new(opts)
     end
   end
 
-  function helpers.canAfford(amount)
-    return canAfford(deps, amount)
+  function helpers.canAfford(amount, garageId, context)
+    return canAfford(deps, opts, amount, garageId, context)
   end
 
   function helpers.applyMoneyDelta(amount, garageId, context)

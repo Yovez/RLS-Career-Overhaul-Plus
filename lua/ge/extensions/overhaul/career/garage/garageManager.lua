@@ -73,7 +73,13 @@ local function readCapacity(inventoryId, excludedPurchaseToken, forDisposal)
     totalCapacity = totalCapacity + capacity
   end
   for garageId, owned in pairs(garageState.purchasedGarages) do
-    if owned then addGarage(garageId) end
+    if owned then
+      -- Landlord-rented owned garages are locked empty (no player capacity).
+      local landlord = overhaul_career_garage_property_propertyLandlord
+      if not (landlord and landlord.isLandlordRented and landlord.isLandlordRented(garageId)) then
+        addGarage(garageId)
+      end
+    end
   end
   for garageId in pairs(overhaul_career_garage_property_propertyRentals.getActiveRentals()) do addGarage(garageId) end
   local occupancy = {}
@@ -109,6 +115,10 @@ function M.getGarageOccupancy(garageId)
 end
 
 function M.isGarageSpace(garage, inventoryId)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  if landlord and landlord.isLandlordReserved and landlord.isLandlordReserved(tostring(garage)) then
+    return {false, 0}
+  end
   local data = readCapacity(inventoryId)
   local info = data[tostring(garage)]
   if not info then return {false, 0} end
@@ -249,6 +259,40 @@ M.getOwnedGaragesListingData = parts.ui.getOwnedGaragesListingData
 M.getGarageOffersData = parts.ui.getGarageOffersData
 M.acceptOffer = parts.ui.acceptOffer
 M.declineOffer = parts.ui.declineOffer
+
+-- Landlord rentals facade (phone can also call propertyLandlord directly).
+function M.listGarageForRent(garageId, askingRent)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.listForRent and landlord.listForRent(garageId, askingRent)
+end
+function M.removeGarageRentListing(garageId)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.removeListing and landlord.removeListing(garageId)
+end
+function M.getGarageRentOffersData(garageId)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.getListingOffersData and landlord.getListingOffersData(garageId)
+end
+function M.acceptGarageRentOffer(garageId, offerIndex)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.acceptOffer and landlord.acceptOffer(garageId, offerIndex)
+end
+function M.declineGarageRentOffer(garageId, offerIndex)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.declineOffer and landlord.declineOffer(garageId, offerIndex)
+end
+function M.endGarageLandlordLease(garageId)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.endLeaseEarly and landlord.endLeaseEarly(garageId)
+end
+function M.isLandlordRented(garageId)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.isLandlordRented and landlord.isLandlordRented(garageId)
+end
+function M.isLandlordReserved(garageId)
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  return landlord and landlord.isLandlordReserved and landlord.isLandlordReserved(garageId)
+end
 
 M.onOverhaulModulesActivated = parts.ownership.onOverhaulModulesActivated
 M.onExtensionLoaded = parts.ownership.onExtensionLoaded

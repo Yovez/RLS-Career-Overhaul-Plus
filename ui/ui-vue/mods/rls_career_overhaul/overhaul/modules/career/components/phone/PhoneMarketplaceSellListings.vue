@@ -44,6 +44,9 @@
     <button type="button" class="add-listing-btn" @click="$emit('add-listing')">
       + List a vehicle from your garage
     </button>
+    <button type="button" class="add-listing-btn rent-out-btn" @click="$emit('rent-out')">
+      + Rent out a vehicle
+    </button>
   </div>
 </template>
 
@@ -55,7 +58,7 @@ import { usePhoneMarketplaceConfirm } from '../../composables/usePhoneMarketplac
 import { usePhoneMarketplaceListings } from '../../composables/usePhoneMarketplaceListings'
 import { marketDelta, mileageText, usePhoneMarketplaceMoney } from '../../composables/usePhoneMarketplaceFormat'
 
-defineEmits(['see-offers', 'add-listing', 'edit-listing'])
+defineEmits(['see-offers', 'add-listing', 'edit-listing', 'rent-out'])
 
 const { money } = usePhoneMarketplaceMoney()
 const { askConfirm } = usePhoneMarketplaceConfirm()
@@ -288,6 +291,12 @@ function confirmRemove(row) {
 
 .offers-row.has-offers .offers-text {
   color: #c9e0ff;
+}
+
+.rent-out-btn {
+  margin-top: -2px;
+  background: rgba(37, 99, 235, 0.18) !important;
+  color: #93c5fd !important;
 }
 
 .add-listing-btn {

@@ -1,5 +1,5 @@
 <template>
-  <div class="phone-marketplace-sell" v-bng-on-ui-nav:tab_l="() => { tab = 'listings' }" v-bng-on-ui-nav:tab_r="showOffers">
+  <div class="phone-marketplace-sell" v-bng-on-ui-nav:tab_l="() => { tab = 'listings' }" v-bng-on-ui-nav:tab_r="cycleTabRight">
     <div class="tab-bar">
 
       <button type="button" class="mkt-tab" :class="{ active: tab === 'listings' }" @click="tab = 'listings'">
@@ -9,6 +9,9 @@
         Offers
         <span v-if="unreadCount > 0" class="mkt-badge">{{ unreadCount }}</span>
       </button>
+      <button type="button" class="mkt-tab" :class="{ active: tab === 'rentals' }" @click="tab = 'rentals'">
+        Rentals
+      </button>
     </div>
 
     <div class="tab-body">
@@ -17,8 +20,10 @@
         @see-offers="showOffers"
         @add-listing="openAddSheet"
         @edit-listing="openEditSheet"
+        @rent-out="openRentalsTab"
       />
-      <PhoneMarketplaceOffers v-else />
+      <PhoneMarketplaceOffers v-else-if="tab === 'offers'" />
+      <PhoneMarketplaceRentals v-else />
     </div>
 
     <PhoneMarketplaceNav active="sell" :unread-count="unreadCount" />
@@ -160,6 +165,7 @@ import { computed, onBeforeMount, onBeforeUnmount, onMounted, ref, watch } from 
 import PhoneMarketplaceNav from '../../components/phone/PhoneMarketplaceNav.vue'
 import PhoneMarketplaceSellListings from '../../components/phone/PhoneMarketplaceSellListings.vue'
 import PhoneMarketplaceOffers from '../../components/phone/PhoneMarketplaceOffers.vue'
+import PhoneMarketplaceRentals from '../../components/phone/PhoneMarketplaceRentals.vue'
 import { moneyText } from '../../composables/usePhoneMarketplaceFormat'
 import { lua, useBridge } from '@/bridge'
 import { useVehicleInventoryStore } from '../../stores/vehicleInventoryStore'
@@ -237,6 +243,16 @@ function showOffers() {
   markSeenOnNextListings.value = true
 }
 
+function cycleTabRight() {
+  if (tab.value === 'listings') showOffers()
+  else if (tab.value === 'offers') tab.value = 'rentals'
+  else tab.value = 'listings'
+}
+
+function openRentalsTab() {
+  tab.value = 'rentals'
+}
+
 watch([listings, markSeenOnNextListings], () => {
   if (!markSeenOnNextListings.value || !listings.value.length) return
   markOffersSeen()
@@ -258,6 +274,7 @@ const listableVehicles = computed(() => {
   return vehicles.filter(v =>
     v.owned !== false &&
     !v.listedForSale &&
+    !v.rentedOut &&
     !listedIds.value.has(String(v.id))
   )
 })

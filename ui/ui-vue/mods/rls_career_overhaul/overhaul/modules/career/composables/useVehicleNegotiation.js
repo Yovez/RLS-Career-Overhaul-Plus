@@ -488,7 +488,7 @@ function createOfferInputActions({ offerPreview, openingOffer, openingOfferText,
   return { splitGapAvailable, nudgeOffer, splitTheGap, nudgeOpeningOffer, onOpeningOfferInput, onOpeningInputFocus, onOpeningInputBlur }
 }
 
-function createServerSync({ state, offerPreview, openingOffer, openingOfferText, openingOfferTouched, acceptancePending, clampedHint }, { awaitingOpeningOffer }, onExit) {
+function createServerSync({ state, offerPreview, openingOffer, openingOfferText, openingOfferTouched, acceptancePending, clampedHint }, { awaitingOpeningOffer }, onExit, getApi) {
   const applyPurchaseFailure = result => {
     acceptancePending.value = false
     const reason = result?.reason || 'Purchase could not be completed.'
@@ -501,7 +501,8 @@ function createServerSync({ state, offerPreview, openingOffer, openingOfferText,
   }
 
   const refresh = async payload => {
-    const s = payload || await lua.overhaul_career_market_marketplace.getNegotiationState()
+    const api = getApi()
+    const s = payload || (api?.getNegotiationState && await api.getNegotiationState())
     if (!s) {
       onExit?.(state.value)
       return
@@ -563,11 +564,12 @@ function watchNewNegotiation({ state, splitGapUsed, acceptancePending }) {
   })
 }
 
-function createOfferActions({ state, offerPreview, openingOffer, openingOfferTouched, acceptancePending }, { applyPurchaseFailure, refresh }) {
+function createOfferActions({ state, offerPreview, openingOffer, openingOfferTouched, acceptancePending }, { applyPurchaseFailure, refresh }, getApi) {
   const submitOffer = async () => {
     const price = Number(offerPreview.value)
     if (!Number.isFinite(price)) return
-    await lua.overhaul_career_market_marketplace.makeNegotiationOffer(price)
+    const api = getApi()
+    if (api?.makeNegotiationOffer) await api.makeNegotiationOffer(price)
   }
 
   const submitOpeningOffer = async () => {
@@ -575,12 +577,14 @@ function createOfferActions({ state, offerPreview, openingOffer, openingOfferTou
     if (!Number.isFinite(price) || price <= 0) return
     offerPreview.value = price
     openingOfferTouched.value = true
-    await lua.overhaul_career_market_marketplace.makeNegotiationOffer(price)
+    const api = getApi()
+    if (api?.makeNegotiationOffer) await api.makeNegotiationOffer(price)
   }
 
   const takeOffer = async () => {
     if (acceptancePending.value) return
-    const result = await lua.overhaul_career_market_marketplace.takeTheirOffer()
+    const api = getApi()
+    const result = api?.takeTheirOffer && await api.takeTheirOffer()
     if (result?.ok === false || result?.ok === 0) {
       applyPurchaseFailure(result)
       return
@@ -610,23 +614,25 @@ function createOfferActions({ state, offerPreview, openingOffer, openingOfferTou
   return { submitOffer, submitOpeningOffer, takeOffer }
 }
 
-function createExitActions({ state, acceptancePending }, { applyPurchaseFailure, refresh }, onExit) {
+function createExitActions({ state, acceptancePending }, { applyPurchaseFailure, refresh }, onExit, getApi) {
   const cancel = async () => {
     if (state.value.negotiationStatus !== 'accepted') {
-      await lua.overhaul_career_market_marketplace.cancelNegotiation()
+      const api = getApi()
+      if (api?.cancelNegotiation) await api.cancelNegotiation()
     }
   }
 
   const exitNegotiation = async () => {
     if (acceptancePending.value) return
+    const api = getApi()
     if (state.value.purchaseFailureReason) {
-      await lua.overhaul_career_market_marketplace.dismissNegotiation()
+      if (api?.dismissNegotiation) await api.dismissNegotiation()
     } else if (
       state.value.negotiationStatus === 'accepted'
       && state.value.purchaseAfterAccept
       && !state.value.iAccepted
     ) {
-      await lua.overhaul_career_market_marketplace.dismissNegotiation()
+      if (api?.dismissNegotiation) await api.dismissNegotiation()
     } else {
       await cancel()
     }
@@ -635,14 +641,15 @@ function createExitActions({ state, acceptancePending }, { applyPurchaseFailure,
 
   const goBack = async () => {
     if (acceptancePending.value) return
+    const api = getApi()
     if (state.value.purchaseFailureReason) {
-      await lua.overhaul_career_market_marketplace.dismissNegotiation()
+      if (api?.dismissNegotiation) await api.dismissNegotiation()
       onExit?.(state.value)
       return
     }
 
     if (state.value.negotiationStatus === 'accepted' && !state.value.iAccepted) {
-      const result = await lua.overhaul_career_market_marketplace.takeTheirOffer()
+      const result = api?.takeTheirOffer && await api.takeTheirOffer()
       if (result?.ok === false || result?.ok === 0) {
         applyPurchaseFailure(result)
         return
@@ -660,7 +667,7 @@ function createExitActions({ state, acceptancePending }, { applyPurchaseFailure,
     }
 
     if (state.value.purchaseFailureReason) {
-      await lua.overhaul_career_market_marketplace.dismissNegotiation()
+      if (api?.dismissNegotiation) await api.dismissNegotiation()
     } else {
       await cancel()
     }
@@ -672,7 +679,7 @@ function createExitActions({ state, acceptancePending }, { applyPurchaseFailure,
     // Buying: takeTheirOffer() only writes the agreed price onto the shop vehicle. Hand off to
     // the purchase screen so the car is actually bought, instead of dropping back on the feed.
     if (!state.value.amISelling && state.value.negotiationStatus === 'accepted') {
-      const handedOff = await lua.overhaul_career_market_marketplace.finishPhonePurchase()
+      const handedOff = api?.finishPhonePurchase && await api.finishPhonePurchase()
       if (handedOff) return
     }
     onExit?.(state.value)
@@ -681,7 +688,7 @@ function createExitActions({ state, acceptancePending }, { applyPurchaseFailure,
   return { exitNegotiation, goBack }
 }
 
-function createLifecycle({ negotiationChat }, { refresh }, events) {
+function createLifecycle({ negotiationChat }, { refresh }, events, eventName) {
   const start = async () => {
     await refresh()
     nextTick(() => {
@@ -691,14 +698,17 @@ function createLifecycle({ negotiationChat }, { refresh }, events) {
 
   const kill = async () => {
     try { lua.setCEFTyping(false) } catch (_) {}
-    events.off('negotiationData')
+    events.off(eventName)
   }
 
   return { start, kill }
 }
 
-export function useVehicleNegotiation(onExit) {
+export function useVehicleNegotiation(onExit, options = {}) {
   const events = useEvents()
+  const apiName = options.api || 'overhaul_career_market_marketplace'
+  const eventName = options.event || 'negotiationData'
+  const getApi = () => lua[apiName]
 
   const core = createNegotiationState()
   const turnGate = deriveTurnGate(core)
@@ -709,15 +719,15 @@ export function useVehicleNegotiation(onExit) {
   const outcome = deriveOutcome(core)
   const chat = createChatView(core)
   const inputActions = createOfferInputActions(core, range, turnGate)
-  const sync = createServerSync(core, turnGate, onExit)
-  const offers = createOfferActions(core, sync)
-  const exits = createExitActions(core, sync, onExit)
-  const lifecycle = createLifecycle(core, sync, events)
+  const sync = createServerSync(core, turnGate, onExit, getApi)
+  const offers = createOfferActions(core, sync, getApi)
+  const exits = createExitActions(core, sync, onExit, getApi)
+  const lifecycle = createLifecycle(core, sync, events, eventName)
   const { refresh } = sync
 
   watchNewNegotiation(core)
 
-  events.on('negotiationData', data => {
+  events.on(eventName, data => {
     refresh(data)
   })
 

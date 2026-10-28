@@ -515,7 +515,8 @@ end
 local function tickAccessTimers(elapsed)
   for inventoryId, vehInfo in pairs(vehicles) do
     if vehInfo.timeToAccess and vehInfo.delayReason ~= "engineRetailInstall"
-        and vehInfo.delayReason ~= "engineRetailPickup" then
+        and vehInfo.delayReason ~= "engineRetailPickup"
+        and vehInfo.delayReason ~= "rentedOut" then
       vehInfo.timeToAccess = vehInfo.timeToAccess - elapsed
       parts.persistence.setVehicleDirty(inventoryId)
       if vehInfo.timeToAccess < 0 then

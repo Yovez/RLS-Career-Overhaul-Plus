@@ -302,14 +302,22 @@ Map of PhoneRealEstate.vue. This view owns lifecycle, the tab state and the mini
             :image-failed="imgFailed(garage.garageId)"
             :price="listingPrices[garage.garageId]"
             :guidance="listingGuidance[garage.garageId]"
+            :rent="listingRents[garage.garageId]"
+            :rent-guidance="rentGuidance[garage.garageId]"
             @image-error="onImgError({ id: garage.garageId })"
             @update:price="listingPrices[garage.garageId] = $event"
             @check-price="getGuidance(garage)"
             @list-for-sale="listGarageForSale(garage)"
+            @update:rent="listingRents[garage.garageId] = $event"
+            @check-rent="getRentGuidance(garage)"
+            @list-for-rent="listGarageForRent(garage)"
             @move-out="confirmMoveOut(garage)"
             @reclaim="confirmReclaimOwned(garage)"
             @view-offers="openOwnedOffers(garage)"
+            @view-rent-offers="openRentOffers(garage)"
             @remove-listing="removeOwnedListing(garage)"
+            @remove-rent-listing="removeRentListing(garage)"
+            @end-landlord-lease="endLandlordLease(garage)"
           />
         </template>
 
@@ -320,8 +328,8 @@ Map of PhoneRealEstate.vue. This view owns lifecycle, the tab state and the mini
               <div class="listings-offers-header">
                 <div class="offers-header-info">
                   <span class="listings-name">{{ selectedOwnedGarage.name }}</span>
-                  <span class="listings-meta">Asking: ${{ formatPrice(selectedOwnedGarage.askingPrice || 0) }}</span>
-                  <span class="listings-meta">Market: ${{ formatPrice(selectedOwnedGarage.marketValue || 0) }}</span>
+                  <span class="listings-meta">{{ offersMode === 'rent' ? 'Asking rent' : 'Asking' }}: ${{ formatPrice(selectedOwnedGarage.askingPrice || 0) }}{{ offersMode === 'rent' ? '/period' : '' }}</span>
+                  <span class="listings-meta">{{ offersMode === 'rent' ? 'Market rent' : 'Market' }}: ${{ formatPrice(selectedOwnedGarage.marketValue || 0) }}{{ offersMode === 'rent' ? '/period' : '' }}</span>
                 </div>
                 <span class="offers-count-badge" v-if="selectedOwnedOffers.length">{{ selectedOwnedOffers.length }}</span>
               </div>
@@ -461,10 +469,12 @@ const failedImages = reactive(new Set())
 
 const viewMode = ref('map')
 const {
-  listingsSubView, ownedListings, listingPrices, listingGuidance, selectedOwnedGarage, selectedOwnedOffers,
-  defaultListingPrice, refreshOwnedListings, setListingsSubView, openOwnedOffers, getGuidance, listGarageForSale,
-  confirmMoveOut, confirmReclaim, confirmReclaimOwned, removeOwnedListing, acceptOwnedOffer, declineOwnedOffer,
-  negotiateOwnedOffer,
+  listingsSubView, ownedListings, listingPrices, listingGuidance, listingRents, rentGuidance,
+  selectedOwnedGarage, selectedOwnedOffers, offersMode,
+  defaultListingPrice, refreshOwnedListings, setListingsSubView, openOwnedOffers, openRentOffers,
+  getGuidance, getRentGuidance, listGarageForSale, listGarageForRent,
+  confirmMoveOut, confirmReclaim, confirmReclaimOwned, removeOwnedListing, removeRentListing,
+  endLandlordLease, acceptOwnedOffer, declineOwnedOffer, negotiateOwnedOffer,
 } = usePhoneRealEstateListings({ lua, openConfirmation })
 const expandedId = ref(null)
 const selectedGarage = ref(null)

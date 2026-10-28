@@ -79,6 +79,29 @@ function ui.new(inputs)
     if isRented then rentalInfo = overhaul_career_garage_property_propertyRentals.getRentalInfo(garageId) end
     local acquisition = (not isReclaimable) and inputs.parts.ownership.getGarageAcquisition(garageId) or nil
 
+    local landlord = overhaul_career_garage_property_propertyLandlord
+    local rentListing, rentOfferCount, askingRent, landlordLease = nil, 0, nil, nil
+    local canListForRent, listForRentReason = false, nil
+    local marketRent = nil
+    if not isRented and not isReclaimable and landlord then
+      if landlord.getListing then rentListing = landlord.getListing(garageId) end
+      if rentListing then
+        askingRent = rentListing.askingRent
+        rentOfferCount = rentListing.offers and #rentListing.offers or 0
+      end
+      if landlord.getLeaseInfo then landlordLease = landlord.getLeaseInfo(garageId) end
+      if landlord.getListEligibility then
+        local elig = landlord.getListEligibility(garageId)
+        if elig then
+          canListForRent = elig.canList == true
+          listForRentReason = elig.reason
+          marketRent = elig.marketRent
+        end
+      elseif landlord.marketRentFor then
+        marketRent = landlord.marketRentFor(garageId)
+      end
+    end
+
     return {
       garageId = garageId,
       computerId = computerId,
@@ -102,6 +125,14 @@ function ui.new(inputs)
       isRented = isRented,
       rentalType = rentalInfo and rentalInfo.type or nil,
       paymentsRemaining = rentalInfo and rentalInfo.paymentsRemaining or nil,
+      canListForRent = canListForRent,
+      listForRentReason = listForRentReason,
+      isListedForRent = rentListing ~= nil,
+      askingRent = askingRent,
+      rentOfferCount = rentOfferCount,
+      marketRent = marketRent,
+      isLandlordRented = landlordLease ~= nil,
+      landlordLease = landlordLease,
     }
   end
 

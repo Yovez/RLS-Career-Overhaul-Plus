@@ -46,8 +46,22 @@ import { useVehicleNegotiation } from '../../composables/useVehicleNegotiation'
 
 usePhoneMarketplaceUi()
 
-/** Selling ends up back in the offers inbox; buying returns to the browse feed. */
+const isRentSession = (() => {
+  try {
+    return sessionStorage.getItem('phoneMarketplaceNegotiateMode') === 'rent'
+  } catch (_) {
+    return false
+  }
+})()
+
+/** Selling ends up back in the offers inbox; buying returns to the browse feed. Rent → Rentals tab. */
 const exitToMarketplace = finalState => {
+  try { sessionStorage.removeItem('phoneMarketplaceNegotiateMode') } catch (_) {}
+  if (finalState?.isRent || isRentSession) {
+    requestSellTab('rentals')
+    lua.extensions.ui_router.navigate('phone-marketplace-sell')
+    return
+  }
   if (finalState?.amISelling) {
     requestSellTab('offers')
     lua.extensions.ui_router.navigate('phone-marketplace-sell')
@@ -73,11 +87,15 @@ const {
   takeOffer,
   exitNegotiation,
   goBack,
-} = useVehicleNegotiation(exitToMarketplace)
+} = useVehicleNegotiation(exitToMarketplace, isRentSession
+  ? { api: 'overhaul_career_market_vehicleRentals', event: 'vehicleRentNegotiationData' }
+  : {})
 
 const opponentName = computed(() => state.value.opponentName || opponent.value)
-const vehicleMeta = computed(() =>
-  state.value.vehicleMileage != null ? [{ icon: icons.odometer, text: formatMileage(state.value.vehicleMileage) }] : [])
+const vehicleMeta = computed(() => {
+  if (state.value.isRent || isRentSession) return [{ icon: icons.car, text: 'Daily rental rate' }]
+  return state.value.vehicleMileage != null ? [{ icon: icons.odometer, text: formatMileage(state.value.vehicleMileage) }] : []
+})
 const resolvedTone = computed(() =>
   state.value.purchaseFailureReason || state.value.negotiationStatus !== 'accepted' ? 'bad' : 'ok')
 

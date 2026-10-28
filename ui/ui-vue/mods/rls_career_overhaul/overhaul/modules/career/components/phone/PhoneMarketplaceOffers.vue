@@ -50,8 +50,8 @@
 import { returnFocusToOpener } from "../../composables/useScreenEntryFocus.js"
 import { useActionFocus } from "../../composables/useActionFocus.js"
 import MoneyAmount from "../MoneyAmount.vue"
-import { computed, ref } from 'vue'
-import { lua } from '@/bridge'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { lua, useBridge } from '@/bridge'
 import { usePhoneMarketplaceConfirm } from '../../composables/usePhoneMarketplaceConfirm'
 import { usePhoneMarketplaceListings } from '../../composables/usePhoneMarketplaceListings'
 import {
@@ -65,11 +65,23 @@ import {
 const { money } = usePhoneMarketplaceMoney()
 const { askConfirm } = usePhoneMarketplaceConfirm()
 const { offers, isUnread, refreshListings } = usePhoneMarketplaceListings()
+const { events } = useBridge()
 
 const offersRoot = ref(null)
 const { busy, run } = useActionFocus(offersRoot)
+const rentListings = ref([])
 
-const rows = computed(() => offers.value.map(entry => {
+async function refreshRentListings() {
+  const api = lua.overhaul_career_market_vehicleRentals
+  if (!api?.getListings) {
+    rentListings.value = []
+    return
+  }
+  const list = await api.getListings()
+  rentListings.value = Array.isArray(list) ? list : []
+}
+
+const saleRows = computed(() => offers.value.map(entry => {
   const { offer, listing, index } = entry
   const buyer = offer.buyerPersonality?.name || offer.customer || 'Anonymous Buyer'
   const asking = Number(listing.value) || 0
@@ -80,6 +92,7 @@ const rows = computed(() => offers.value.map(entry => {
 
   return {
     key: entry.key,
+    kind: 'sale',
     listingId: listing.id,
     offerIndex: index,
     offerId: offer.id,
@@ -97,8 +110,6 @@ const rows = computed(() => offers.value.map(entry => {
     urgent: !expired && Number(offer.secondsLeft) < 90,
     expired,
     unread: !expired && isUnread(entry),
-    // full-price offers have nothing to haggle over, so they simply lose the Counter button.
-    // Post-list damage blocks accept/counter until the car is repaired.
     canCounter: !expired && offer.negotiationPossible !== false && !acceptBlocked && value < asking,
     acceptBlocked,
     acceptBlockedReason: listing.disableReason
@@ -106,6 +117,58 @@ const rows = computed(() => offers.value.map(entry => {
       || (listing.damagedAfterListing ? 'This vehicle was damaged after listing. Repair it before accepting offers.' : ''),
   }
 }))
+
+const rentRows = computed(() => {
+  const rows = []
+  for (const listing of rentListings.value) {
+    const asking = Number(listing.askingDailyRate) || 0
+    for (let i = 0; i < (listing.offers || []).length; i++) {
+      const offer = listing.offers[i]
+      const value = Number(offer.negotiatedRate || offer.value) || 0
+      const delta = value - asking
+      const buyer = offer.buyerName || 'Renter'
+      const age = Math.max(0, (Date.now() / 1000) - (offer.timestamp || 0))
+      const ttl = Number(offer.ttl) || 500
+      const secondsLeft = Math.max(0, ttl - age)
+      const expired = secondsLeft <= 0
+      rows.push({
+        key: `rent-${listing.inventoryId}-${i}`,
+        kind: 'rent',
+        listingId: listing.inventoryId,
+        offerIndex: i + 1,
+        offerId: null,
+        buyer,
+        initials: avatarInitials(buyer),
+        avatarBg: avatarColour(buyer),
+        trait: 'Rental',
+        vehicle: listing.niceName,
+        quote: null,
+        valueText: `${money(value)}/day`,
+        deltaText: delta === 0 ? 'Full asking rate' : `${money(Math.abs(delta))}/day ${delta > 0 ? 'over' : 'under'} asking`,
+        deltaGood: delta >= 0,
+        deltaAmountText: delta === 0 ? '' : `${money(Math.abs(delta))}/day`,
+        timerText: expired ? 'Expired' : `${countdownText(secondsLeft)} left`,
+        urgent: !expired && secondsLeft < 90,
+        expired,
+        unread: !expired,
+        canCounter: !expired && offer.negotiationPossible !== false && value < asking,
+        acceptBlocked: false,
+        acceptBlockedReason: '',
+      })
+    }
+  }
+  return rows
+})
+
+const rows = computed(() => [...rentRows.value, ...saleRows.value])
+
+onMounted(() => {
+  refreshRentListings()
+  events.on('vehicleRentals:updated', refreshRentListings)
+})
+onUnmounted(() => {
+  events.off('vehicleRentals:updated', refreshRentListings)
+})
 
 function confirmOffer(message, action) {
   const opener = document.activeElement
@@ -119,6 +182,11 @@ function denyOffer(row) {
   if (busy.value) return
   const verb = row.expired ? 'Discard' : 'Decline'
   confirmOffer(`${verb} the ${row.valueText} offer from ${row.buyer}?`, async () => {
+      if (row.kind === 'rent') {
+        await lua.overhaul_career_market_vehicleRentals.declineOffer(row.listingId, row.offerIndex)
+        await refreshRentListings()
+        return
+      }
       if (row.offerId != null) await lua.overhaul_career_market_marketplace.declineOfferById(row.offerId)
       else await lua.overhaul_career_market_marketplace.declineOffer(row.listingId, row.offerIndex + 1)
       await refreshListings()
@@ -128,6 +196,11 @@ function denyOffer(row) {
 function acceptOffer(row) {
   if (busy.value || row.acceptBlocked) return
   confirmOffer(`Accept ${row.valueText} from ${row.buyer} for your ${row.vehicle}?`, async () => {
+      if (row.kind === 'rent') {
+        await lua.overhaul_career_market_vehicleRentals.acceptOffer(row.listingId, row.offerIndex)
+        await refreshRentListings()
+        return
+      }
       if (row.offerId != null) await lua.overhaul_career_market_marketplace.acceptOfferById(row.offerId)
       else await lua.overhaul_career_market_marketplace.acceptOffer(row.listingId, row.offerIndex + 1)
       await refreshListings()
@@ -137,6 +210,11 @@ function acceptOffer(row) {
 async function counterOffer(row) {
   if (busy.value || !row.canCounter) return
   return run(async () => {
+    if (row.kind === 'rent') {
+      try { sessionStorage.setItem('phoneMarketplaceNegotiateMode', 'rent') } catch (_) {}
+      await lua.overhaul_career_market_vehicleRentals.startNegotiateRentOffer(row.listingId, row.offerIndex, true)
+      return
+    }
     if (row.offerId != null) await lua.overhaul_career_market_marketplace.startNegotiateBuyingOfferById(row.offerId, true)
     else await lua.overhaul_career_market_marketplace.startNegotiateBuyingOffer(row.listingId, row.offerIndex + 1, true)
     await lua.extensions.ui_router.navigate('phone-marketplace-negotiate')

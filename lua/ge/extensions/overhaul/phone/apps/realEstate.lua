@@ -194,9 +194,20 @@ local function setPrimaryHome(garageId)
   if garageId == nil or garageId == "" then
     primaryHomeGarageId = nil
   else
-    primaryHomeGarageId = tostring(garageId)
+    local id = tostring(garageId)
+    if overhaul_career_garage_property_propertyLandlord
+        and overhaul_career_garage_property_propertyLandlord.isLandlordReserved
+        and overhaul_career_garage_property_propertyLandlord.isLandlordReserved(id) then
+      return false
+    end
+    primaryHomeGarageId = id
   end
   savePrimaryHome()
+  return true
+end
+
+local function getPrimaryHomeGarageId()
+  return primaryHomeGarageId
 end
 
 -- Owned homes on the current map only (purchased, not rentals).
@@ -209,10 +220,15 @@ local function ownedHomesOnLevel()
   if not garages then return {} end
   local rows = buildGarageRows(garages, levelName)
   local owned = {}
+  local landlord = overhaul_career_garage_property_propertyLandlord
   for _, row in ipairs(rows) do
     if row.owned then
-      row.isPrimary = primaryHomeGarageId ~= nil and tostring(row.id) == primaryHomeGarageId
-      owned[#owned + 1] = row
+      if landlord and landlord.isLandlordReserved and landlord.isLandlordReserved(row.id) then
+        -- Listed/occupied landlord rentals are not usable as home.
+      else
+        row.isPrimary = primaryHomeGarageId ~= nil and tostring(row.id) == primaryHomeGarageId
+        owned[#owned + 1] = row
+      end
     end
   end
   table.sort(owned, function(a, b)
@@ -289,6 +305,7 @@ M.routeHome = routeHome
 M.routeHomeTo = routeHomeTo
 M.listOwnedHomes = ownedHomesOnLevel
 M.setPrimaryHome = setPrimaryHome
+M.getPrimaryHomeGarageId = getPrimaryHomeGarageId
 M.endLeaseEarly = endLeaseEarly
 
 -- Loaded on demand by the phone. Restoring it on Lua reload would load career modules before career is active.

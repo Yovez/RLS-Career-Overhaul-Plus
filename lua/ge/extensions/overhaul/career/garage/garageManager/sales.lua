@@ -19,6 +19,10 @@ function sales.new(inputs)
     if not garage then return false end
     -- Granted / unpaid ownership cannot be sold for money.
     if inputs.parts.ownership.isGrantedGarageOwnership(garageId) then return {false, 0} end
+    local landlord = overhaul_career_garage_property_propertyLandlord
+    if landlord and landlord.isLandlordReserved and landlord.isLandlordReserved(garageId) then
+      return {false, 0}
+    end
     local space = inputs.parts.capacity.isGarageSpace(garageId)
     local capacity = math.ceil(garage.capacity / (inputs.parts.ownership.isHardcoreMode() and 2 or 1))
     local vehicleCount = inputs.parts.capacity.getGarageOccupancy(garageId)
@@ -37,6 +41,10 @@ function sales.new(inputs)
     if not inputs.state.purchasedGarages[garageId] then return {false, 0, "notOwned"} end
     if not inputs.parts.ownership.isGrantedGarageOwnership(garageId) then return {false, 0, "purchased"} end
     if overhaul_career_garage_property_propertyRentals.isRentedGarage(garageId) then return {false, 0, "rented"} end
+    local landlord = overhaul_career_garage_property_propertyLandlord
+    if landlord and landlord.isLandlordReserved and landlord.isLandlordReserved(garageId) then
+      return {false, 0, "landlordRented"}
+    end
     if inputs.parts.ownership.isGarageForSale(garageId) then return {false, 0, "listed"} end
     local garage = overhaul_world_facilities.getFacility("garage", garageId)
     if not garage then return {false, 0, "missing"} end
@@ -112,6 +120,11 @@ function sales.new(inputs)
 
   -- A mortgaged property can only be listed above what is still owed.
   local function listAtAskingPrice(garageId, askingPrice)
+    local landlord = overhaul_career_garage_property_propertyLandlord
+    if landlord and landlord.isLandlordReserved and landlord.isLandlordReserved(garageId) then
+      toastError("Sale Blocked", "End the rental listing or lease before listing for sale.")
+      return false
+    end
     local marketPrice = inputs.parts.capacity.getGaragePurchasePrice(garageId) or 0
     local desiredPrice = tonumber(askingPrice) or marketPrice
     if desiredPrice <= 0 then return false end

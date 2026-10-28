@@ -265,7 +265,7 @@ local function endLeaseEarly(garageId)
   if not rental then return { error = "no_rental" } end
   -- The deposit is forfeited and one month of rent is charged on top.
   local penalty = rental.monthlyRent
-  if propertyMoney.canAfford(penalty) then
+  if propertyMoney.canAfford(penalty, garageId) then
     propertyMoney.applyMoneyDelta(-penalty, garageId)
   end
   relocateVehicles(garageId)
@@ -334,7 +334,7 @@ local function signLease(garageId, rentalType, leaseTerm)
   else
     totalCost = deposit + monthlyRent -- deposit + first month
   end
-  if not propertyMoney.canAfford(totalCost) or not propertyMoney.applyMoneyDelta(-totalCost, garageId) then return { error = "insufficient_funds" } end
+  if not propertyMoney.canAfford(totalCost, garageId) or not propertyMoney.applyMoneyDelta(-totalCost, garageId) then return { error = "insufficient_funds" } end
 
   rentalData.activeRentals[garageId] = newLease(rentalType, monthlyRent, leaseTerm, deposit, upfrontTotal)
   overhaul_career_economy_credit.recordOnTimePayment()
@@ -392,7 +392,7 @@ local function processRentPayment(garageId, rental)
   if rental.type == "dynamic" then
     rental.monthlyRent = calculateRent(garageId, "dynamic")
   end
-  if propertyMoney.canAfford(rental.monthlyRent) and propertyMoney.applyMoneyDelta(-rental.monthlyRent, garageId) then
+  if propertyMoney.canAfford(rental.monthlyRent, garageId) and propertyMoney.applyMoneyDelta(-rental.monthlyRent, garageId) then
     rental.paymentsMade = rental.paymentsMade + 1
     rental.paymentsRemaining = rental.paymentsRemaining - 1
     rental.consecutiveMissed = 0

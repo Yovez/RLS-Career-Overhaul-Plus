@@ -1,0 +1,12 @@
+{
+  "id": "overhaul_career_garage_property_propertyLandlord",
+  "order": 100,
+  "exports": {
+    "namespace": true,
+    "namespaceGroup": "careerModules",
+    "namespaceOrder": 265,
+    "aliases": [
+      "career_modules_propertyLandlord"
+    ]
+  }
+}

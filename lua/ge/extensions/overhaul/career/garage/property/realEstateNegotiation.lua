@@ -87,6 +87,7 @@ local propertyNeighborhood = ""
 local listingIndex = nil -- index into listedProperties[propertyId].offers
 local listedProperties = {} -- [garageId] = { listingTimestamp, askingPrice, offers, ... }
 local negotiationOrigin = "computer"
+local negotiationKind = "sale" -- "sale" | "rent"
 local negotiationToken = 0
 local offerUpdateAccumulator = 0
 local personalitiesCache = {}
@@ -115,6 +116,7 @@ local function resetNegotiationState()
   propertyNeighborhood = ""
   listingIndex = nil
   negotiationOrigin = "computer"
+  negotiationKind = "sale"
 end
 
 -- Personalities -----------------------------------------------------------------------------------
@@ -351,9 +353,12 @@ local function getNegotiationState()
     isInsulted = isInsulted,
     closingFeeRate = CLOSING_FEE_RATE,
     propertyTaxRate = PROPERTY_TAX_RATE,
-    mortgageAvailable = mortgageAvailable,
-    mortgageDetails = mortgageDetails,
+    mortgageAvailable = mortgageAvailable and negotiationKind ~= "rent",
+    mortgageDetails = negotiationKind == "rent" and nil or mortgageDetails,
     origin = negotiationOrigin,
+    negotiationKind = negotiationKind,
+    isRent = negotiationKind == "rent",
+    priceUnit = negotiationKind == "rent" and "/period" or "",
   }
 end
 
@@ -639,16 +644,25 @@ local function takeTheirOffer()
   guihooks.trigger(NEGOTIATION_HOOK, getNegotiationState())
 
   if amISelling then
-    local sold = overhaul_career_garage_garageManager.completePropertySaleFromListing(propertyId, theirOffer, opponentPersonality)
-
-    if sold and listedProperties[propertyId] and listingIndex then
-      table.remove(listedProperties[propertyId].offers, listingIndex)
-      if listedProperties[propertyId].offers and #listedProperties[propertyId].offers == 0 then
-        listedProperties[propertyId].timeOfNextOffer = os.time() + timeBetweenOffersBase
+    if negotiationKind == "rent" then
+      local landlord = overhaul_career_garage_property_propertyLandlord
+      local ok = landlord and landlord.acceptNegotiatedRent
+        and landlord.acceptNegotiatedRent(propertyId, listingIndex, theirOffer, opponentPersonality)
+      if ok then
+        resetNegotiationState()
       end
-    end
-    if sold then
-      resetNegotiationState()
+    else
+      local sold = overhaul_career_garage_garageManager.completePropertySaleFromListing(propertyId, theirOffer, opponentPersonality)
+
+      if sold and listedProperties[propertyId] and listingIndex then
+        table.remove(listedProperties[propertyId].offers, listingIndex)
+        if listedProperties[propertyId].offers and #listedProperties[propertyId].offers == 0 then
+          listedProperties[propertyId].timeOfNextOffer = os.time() + timeBetweenOffersBase
+        end
+      end
+      if sold then
+        resetNegotiationState()
+      end
     end
   else
     completePurchase(propertyId, theirOffer, false, false, nil)
@@ -1019,6 +1033,7 @@ local function startNegotiateSelling(garageId, offerIdx, origin)
   setPropertyFacts(garageId, garage, getMarketValue(garageId))
 
   listingIndex = idx
+  negotiationKind = "sale"
   startingPrice = listing.askingPrice or propertyMarketValue
   negotiationActive = true
   amISelling = true
@@ -1033,6 +1048,50 @@ local function startNegotiateSelling(garageId, offerIdx, origin)
     { theirOffer = theirOffer, negotiationStatus = "initial" },
   }
   opponentQuote = selectQuoteForPersonality(opponentPersonality, propertyMarketValue)
+
+  extensions.ui_router.navigate('realEstateNegotiation')
+  guihooks.trigger(NEGOTIATION_HOOK, getNegotiationState())
+  return true
+end
+
+local function startNegotiateRentSelling(garageId, offerIdx, origin)
+  if require("overhaul/lib/business/bundles").forGarage(garageId) then return false end
+  if not garageId or not offerIdx then return false end
+  local landlord = overhaul_career_garage_property_propertyLandlord
+  if not landlord or not landlord.getListing then return false end
+  local listing = landlord.getListing(garageId)
+  if not listing or not listing.offers then return false end
+  local idx = tonumber(offerIdx)
+  if not idx or idx < 1 or idx > #listing.offers then return false end
+  local offer = listing.offers[idx]
+  if not offer or offer.negotiationPossible == false then return false end
+
+  local garage = overhaul_world_facilities.getFacility("garage", garageId)
+  if not garage then return false end
+
+  opponentPersonality = offer.tenantPersonality or generateBuyerPersonality()
+  if opponentPersonality and not opponentPersonality.name then
+    opponentPersonality.name = offer.tenantPersonality and offer.tenantPersonality.name or "Tenant"
+  end
+  local marketRent = listing.marketRentAtListing or (landlord.marketRentFor and landlord.marketRentFor(garageId)) or offer.value
+  setPropertyFacts(garageId, garage, marketRent)
+
+  listingIndex = idx
+  negotiationKind = "rent"
+  startingPrice = listing.askingRent or marketRent
+  negotiationActive = true
+  amISelling = true
+  negotiationOrigin = origin or "phone"
+  patience = opponentPersonality.startingPatience or 0.7
+  isInsulted = false
+  theirOffer = offer.negotiatedRent or offer.value
+  myOffer = startingPrice
+  negotiationStatus = "initial"
+  offerHistory = {
+    { myOffer = myOffer, negotiationStatus = "initial" },
+    { theirOffer = theirOffer, negotiationStatus = "initial" },
+  }
+  opponentQuote = selectQuoteForPersonality(opponentPersonality, marketRent)
 
   extensions.ui_router.navigate('realEstateNegotiation')
   guihooks.trigger(NEGOTIATION_HOOK, getNegotiationState())
@@ -1170,6 +1229,7 @@ end
 
 M.startNegotiateBuying = startNegotiateBuying
 M.startNegotiateSelling = startNegotiateSelling
+M.startNegotiateRentSelling = startNegotiateRentSelling
 M.makeOffer = makeOffer
 M.takeTheirOffer = takeTheirOffer
 M.freezeCurrentOffer = freezeCurrentOffer
