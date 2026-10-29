@@ -52,6 +52,7 @@ local sendShoppingDataToUI
 local installPart
 local removePart
 local republishPreviousShoppingSession
+local partsShopSpendReason
 
 local function isShoppingUnavailable()
   return shoppingInitializer and (shoppingInitializer.unavailableData ~= nil or shoppingInitializer.pendingRecovery ~= nil)
@@ -303,7 +304,8 @@ sendShoppingDataToUI = function()
   -- payload shape is complete. ponytail: search filtering remains in Vue.
   shoppingData.filteredSlots = {}
 
-  shoppingData.playerMoney = overhaul_career_economy_playerAttributes.getAttributeValue("money")
+  -- Affordability gate uses Spendable for the shops bucket (Wallet + shops auto-pay checking).
+  shoppingData.playerMoney = overhaul_career_economy_payment.getSpendableMoney(partsShopSpendReason())
   shoppingData.saveForLater = drafts.getSaveForLater()
   shoppingData.restoreInProgress = drafts.isRestoreInProgress()
   if drafts.isRestoreInProgress() then
@@ -1364,11 +1366,24 @@ local function getBuyingLabel()
   }
 end
 
+-- Shops spend reason: maps to shops bucket (not vehicles), even with vehicleId ledger context.
+partsShopSpendReason = function(label)
+  return {
+    category = "purchase",
+    finance = { vehicleId = currentVehicleInventoryId },
+    tags = { "partsBought", "buying" },
+    label = label or "Part shop purchase",
+  }
+end
+
 local function applyShopping()
   if isShoppingUnavailable() then return false end
   if not shoppingSessionActive or not shoppingCart then return false end
   if not overhaul_career_logistics_general.validateLogisticsContainers(currentVehicleInventoryId) then return false end
-  if not overhaul_career_economy_payment.canPay({money = {amount = shoppingCart.total}}) then return end
+  local price = { money = { amount = shoppingCart.total, canBeNegative = false } }
+  local buyingLabel = getBuyingLabel()
+  local reason = partsShopSpendReason(buyingLabel)
+  if not overhaul_career_economy_payment.canPay(price, nil, reason) then return end
   local operation = checkout.begin("partShop", {amount = shoppingCart.total, target = {inventoryId = currentVehicleInventoryId}})
 
   drafts.abortCartRestore()
@@ -1385,9 +1400,8 @@ local function applyShopping()
   -- their own state; newly purchased parts are initialized as fresh.
   extensions.hook("onOverhaulPartShoppingPartsInstalled", currentVehicleInventoryId, installedParts)
   endShopping()
-  local buyingLabel = getBuyingLabel()
   checkout.settle(operation, function()
-    checkout.money.execute(overhaul_career_economy_playerAttributes.addAttributes, {money=-shoppingCart.total}, {category = "purchase", finance = {vehicleId = currentVehicleInventoryId}, tags={"partsBought", "buying"},label=buyingLabel})
+    checkout.money.execute(overhaul_career_economy_payment.pay, price, reason)
   end)
   -- Publish the purchased build before a later same-build restore can read it.
   overhaul_career_repair_damageManager.saveDamageState(currentVehicleInventoryId)

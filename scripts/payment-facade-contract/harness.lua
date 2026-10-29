@@ -51,7 +51,9 @@ local function spendBucket(reason)
   if category == "service" then return "services" end
   if category == "property" then return "property" end
   if category == "purchase" then
-    if finance.vehicleId or tagSet.vehicleBought or tagSet.buying or tagSet.vehicle then
+    -- Vehicle purchases only: vehicleBought / vehicle tags. Generic "buying" and
+    -- finance.vehicleId are used by parts/paint/tune ledger reasons and must map to shops.
+    if tagSet.vehicleBought or tagSet.vehicle then
       return "vehicles"
     end
     return "shops"
@@ -445,6 +447,89 @@ do
     "#3 auto-pay off: checking untouched")
   expect(nearly(world.playerAttributes._wallet(), 400),
     "#3 auto-pay off: Wallet debited")
+end
+
+---------------------------------------------------------------------------
+-- #4 Parts/shops Spendable — shop reasons must use shops bucket, not vehicles
+---------------------------------------------------------------------------
+
+local partsShopReason = {
+  category = "purchase",
+  finance = { vehicleId = "inv-1" },
+  tags = { "partsBought", "buying" },
+  label = "Bought parts",
+}
+local paintingShopReason = {
+  category = "purchase",
+  finance = { vehicleId = "inv-1" },
+  tags = { "vehiclePainting", "buying" },
+  label = "Repainted vehicle",
+}
+local tuningShopReason = {
+  category = "purchase",
+  finance = { vehicleId = "inv-1" },
+  tags = { "tuning", "buying" },
+  label = "Tuned vehicle",
+}
+
+do
+  -- Vehicles claim must not cover non-vehicle shop goods (parts/paint/tune).
+  local world = makeWorld({ wallet = 30, checking = 5000, claimBucket = "vehicles" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(partsShopReason), 30),
+    "#4 shops≠vehicles: parts Spendable ignores vehicles claim")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, partsShopReason) == false,
+    "#4 shops≠vehicles: parts cannotPay via vehicles checking")
+  expect(nearly(payment.getSpendableMoney(paintingShopReason), 30),
+    "#4 shops≠vehicles: painting Spendable ignores vehicles claim")
+  expect(nearly(payment.getSpendableMoney(tuningShopReason), 30),
+    "#4 shops≠vehicles: tuning Spendable ignores vehicles claim")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, vehicleReason) == true,
+    "#4 shops≠vehicles: vehicleBought reason still uses vehicles claim")
+end
+
+do
+  local world = makeWorld({ wallet = 40, checking = 600, claimBucket = "shops" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(partsShopReason), 640),
+    "#4 shops auto-pay on: Spendable = Wallet + shops checking")
+  expect(payment.canPay({ money = { amount = 500 } }, nil, partsShopReason) == true,
+    "#4 shops auto-pay on: canPay when checking covers")
+  expect(payment.pay({ money = { amount = 500 } }, partsShopReason) == true,
+    "#4 shops auto-pay on: pay succeeds from checking")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 100),
+    "#4 shops auto-pay on: checking debited first (full cover)")
+  expect(nearly(world.playerAttributes._wallet(), 40),
+    "#4 shops auto-pay on: Wallet untouched when checking covers")
+end
+
+do
+  local world = makeWorld({ wallet = 120, checking = 80, claimBucket = "shops" })
+  installWorld(world)
+  local price = { money = { amount = 150 } }
+  expect(payment.canPay(price, nil, paintingShopReason) == true,
+    "#4 shops split: canPay with partial checking")
+  expect(payment.pay(price, paintingShopReason) == true,
+    "#4 shops split: pay succeeds checking then Wallet")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 0),
+    "#4 shops split: checking drained first")
+  expect(nearly(world.playerAttributes._wallet(), 50),
+    "#4 shops split: Wallet covers remainder (120-80)")
+end
+
+do
+  local world = makeWorld({ wallet = 250, checking = 900, claimBucket = nil })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(tuningShopReason), 250),
+    "#4 shops auto-pay off: Spendable equals Wallet")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, tuningShopReason) == true,
+    "#4 shops auto-pay off: canPay from Wallet")
+  expect(payment.pay({ money = { amount = 100 } }, tuningShopReason) == true,
+    "#4 shops auto-pay off: pay from Wallet")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 900),
+    "#4 shops auto-pay off: checking untouched")
+  expect(nearly(world.playerAttributes._wallet(), 150),
+    "#4 shops auto-pay off: Wallet debited")
 end
 
 io.write(string.format("\n%d passed, %d failed\n", passed, failures))

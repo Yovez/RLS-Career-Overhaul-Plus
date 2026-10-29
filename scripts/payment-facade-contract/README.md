@@ -1,8 +1,8 @@
-# Payment facade contract (#2 / #3)
+# Payment facade contract (#2 / #3 / #4)
 
 Offline checks for the Payment Domain facade seam: `canPay`, `getSpendableMoney`, `pay`, `reward`.
 
-Covers auto-pay on/off, checking-then-Wallet split, wrong spend bucket, Spendable derived-only, rejected split pay with no partial checking debit, and vehicle dealership list/checkout/pay agreement (#3) including Wallet ≠ Spendable for deposit capacity.
+Covers auto-pay on/off, checking-then-Wallet split, wrong spend bucket, Spendable derived-only, rejected split pay with no partial checking debit, vehicle dealership list/checkout/pay agreement (#3), and shops-bucket parts/paint/tune reasons (#4) that must not use the vehicles claim.
 
 ## Run (no BeamNG)
 
