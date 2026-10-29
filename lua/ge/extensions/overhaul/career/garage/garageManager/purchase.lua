@@ -49,6 +49,14 @@ function purchase.new(inputs)
 
   -- Paying ----------------------------------------------------------------------------------------
 
+  local function garagePropertyReason(label, garage)
+    return require("overhaul/lib/finance/metadata").tag(
+      { label = label },
+      "property",
+      {locationId = garage.id, locationName = garage.name, vehicleRelated = false}
+    )
+  end
+
   local function purchaseGarageWithFinancing(garage, purchasePrice, selectedTerm)
     if inputs.bundles.forGarage(garage and garage.id) then return false end
     if not garage then return false end
@@ -62,7 +70,10 @@ function purchase.new(inputs)
     local cashToClose = downPayment + closingFee + propertyTax
 
     if cashToClose > 0 then
-      local paid = overhaul_career_economy_payment.pay({ money = { amount = cashToClose, canBeNegative = false } }, require("overhaul/lib/finance/metadata").tag({ label = "Closing on " .. garage.name }, "purchase", {locationId = garage.id, locationName = garage.name, vehicleRelated = false}))
+      local paid = overhaul_career_economy_payment.pay(
+        { money = { amount = cashToClose, canBeNegative = false } },
+        garagePropertyReason("Closing on " .. garage.name, garage)
+      )
       if not paid then return false end
     end
 
@@ -262,7 +273,7 @@ function purchase.new(inputs)
       local totalPrice = negotiatedPrice + calculateClosingFee(negotiatedPrice) + calculateAnnualPropertyTax(negotiatedPrice)
       historyAmountPaid = totalPrice
       local price = { money = { amount = totalPrice, canBeNegative = false } }
-      success = overhaul_career_economy_payment.pay(price, require("overhaul/lib/finance/metadata").tag({ label = "Purchased " .. garage.name }, "purchase", {locationId = garage.id, locationName = garage.name, vehicleRelated = false}))
+      success = overhaul_career_economy_payment.pay(price, garagePropertyReason("Purchased " .. garage.name, garage))
     end
     if not success then return false end
 
@@ -335,7 +346,7 @@ function purchase.new(inputs)
       local totalPrice = listedPrice + calculateClosingFee(listedPrice) + calculateAnnualPropertyTax(listedPrice)
       historyAmountPaid = totalPrice
       local priceTable = { money = { amount = totalPrice, canBeNegative = false } }
-      success = overhaul_career_economy_payment.pay(priceTable, require("overhaul/lib/finance/metadata").tag({ label = "Purchased " .. garage.name }, "purchase", {locationId = garage.id, locationName = garage.name, vehicleRelated = false}))
+      success = overhaul_career_economy_payment.pay(priceTable, garagePropertyReason("Purchased " .. garage.name, garage))
     end
     if not success then return false end
     inputs.parts.ownership.addPurchasedGarage(garage.id, {
@@ -402,7 +413,18 @@ function purchase.new(inputs)
     local totalPrice = tonumber(overriddenTotal)
     if not totalPrice or totalPrice <= 0 then return false end
     totalPrice = math.floor(totalPrice + 0.5)
-    return overhaul_career_economy_playerAttributes.getAttributeValue("money") >= totalPrice
+    local garage = inputs.state.garageToPurchase
+    local reason
+    if garage then
+      reason = garagePropertyReason("Garage purchase affordability", garage)
+    else
+      reason = require("overhaul/lib/finance/metadata").tag({ label = "Garage purchase affordability" }, "property", {vehicleRelated = false})
+    end
+    return overhaul_career_economy_payment.canPay(
+      { money = { amount = totalPrice, canBeNegative = false } },
+      nil,
+      reason
+    )
   end
 
   local function buyGarage(overriddenTotal, useFinancing, selectedTerm)
@@ -433,7 +455,10 @@ function purchase.new(inputs)
     else
       historyAmountPaid = totalPrice
       local price = { money = { amount = totalPrice, canBeNegative = false } }
-      success = overhaul_career_economy_payment.pay(price, require("overhaul/lib/finance/metadata").tag({ label = "Purchased " .. inputs.state.garageToPurchase.name }, "purchase", {locationId = inputs.state.garageToPurchase.id, locationName = inputs.state.garageToPurchase.name, vehicleRelated = false}))
+      success = overhaul_career_economy_payment.pay(
+        price,
+        garagePropertyReason("Purchased " .. inputs.state.garageToPurchase.name, inputs.state.garageToPurchase)
+      )
     end
     if success then
       inputs.parts.ownership.addPurchasedGarage(inputs.state.garageToPurchase.id, {

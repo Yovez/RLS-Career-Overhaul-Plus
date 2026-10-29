@@ -560,8 +560,8 @@ const openMortgageModal = async () => {
   showRentalModal.value = false
   showMortgageModal.value = true
   try {
-    const playerMoney = await lua.overhaul_career_economy_playerAttributes.getAttributeValue("money")
-    canAffordCashToClose.value = playerMoney >= cashToClose.value
+    // Match garageManager.canPay / property Spendable (not Wallet-only)
+    canAffordCashToClose.value = !!(await lua.overhaul_career_garage_garageManager.canPay(cashToClose.value))
   } catch (e) {
     canAffordCashToClose.value = false
   }
