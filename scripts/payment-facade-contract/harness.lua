@@ -234,6 +234,8 @@ local payment = loadPayment()
 
 local vehicleReason = { category = "purchase", tags = { "vehicleBought", "buying" } }
 local shopsReason = { category = "purchase", tags = { "part" } }
+-- Mirrors stockMarket stocksReason / metadata.tag(..., "purchase", { kind = "stocks" }).
+local stocksReason = { category = "purchase", finance = { kind = "stocks" }, label = "Bought TEST" }
 
 local function installWorld(world)
   _G.overhaul_career_economy_bank = world.bank
@@ -350,6 +352,82 @@ do
   expect(nearly(world.playerAttributes._wallet(), 75), "Reward lands in Wallet")
   expect(world.playerAttributes._persistedKeys().spendable == nil,
     "Reward does not persist Spendable")
+end
+
+---------------------------------------------------------------------------
+-- #8 Stocks spend bucket / auto-pay via payment facade
+---------------------------------------------------------------------------
+
+do
+  local world = makeWorld({ wallet = 40, checking = 600, claimBucket = "stocks" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(stocksReason), 640),
+    "Stocks auto-pay on: Spendable = Wallet + stocks checking")
+  expect(payment.canPay({ money = { amount = 500 } }, nil, stocksReason) == true,
+    "Stocks auto-pay on: canPay with stocks-mapped reason")
+  expect(payment.pay({ money = { amount = 500 } }, stocksReason) == true,
+    "Stocks auto-pay on: pay with stocks-mapped reason")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 100),
+    "Stocks auto-pay on: checking then Wallet (full checking cover)")
+  expect(nearly(world.playerAttributes._wallet(), 40),
+    "Stocks auto-pay on: Wallet untouched when checking covers")
+end
+
+do
+  local world = makeWorld({ wallet = 120, checking = 80, claimBucket = "stocks" })
+  installWorld(world)
+  local price = { money = { amount = 150 } }
+  expect(payment.canPay(price, nil, stocksReason) == true,
+    "Stocks auto-pay on: split canPay (checking + Wallet)")
+  expect(payment.pay(price, stocksReason) == true,
+    "Stocks auto-pay on: split pay succeeds")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 0),
+    "Stocks split: checking drained first")
+  expect(nearly(world.playerAttributes._wallet(), 50),
+    "Stocks split: Wallet covers remainder (120-80)")
+end
+
+do
+  local world = makeWorld({ wallet = 300, checking = 900, claimBucket = nil })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(stocksReason), 300),
+    "Stocks auto-pay off: Spendable equals Wallet")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, stocksReason) == true,
+    "Stocks auto-pay off: canPay from Wallet")
+  expect(payment.pay({ money = { amount = 100 } }, stocksReason) == true,
+    "Stocks auto-pay off: pay from Wallet")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 900),
+    "Stocks auto-pay off: checking untouched")
+  expect(nearly(world.playerAttributes._wallet(), 200),
+    "Stocks auto-pay off: Wallet debited")
+end
+
+do
+  -- Vehicles claim must not fund stock buys (and vice versa).
+  local world = makeWorld({ wallet = 30, checking = 5000, claimBucket = "vehicles" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(stocksReason), 30),
+    "Stocks wrong bucket: Spendable ignores vehicles claim")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, stocksReason) == false,
+    "Stocks wrong bucket: cannotPay using vehicles checking")
+  expect(payment.pay({ money = { amount = 100 } }, stocksReason) == false,
+    "Stocks wrong bucket: pay rejected without debit")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 5000),
+    "Stocks wrong bucket: checking untouched after reject")
+  expect(nearly(world.playerAttributes._wallet(), 30),
+    "Stocks wrong bucket: Wallet untouched after reject")
+end
+
+do
+  -- Plain purchase without finance.kind=stocks must not steal the stocks claim.
+  local world = makeWorld({ wallet = 25, checking = 4000, claimBucket = "stocks" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(shopsReason), 25),
+    "Shops reason ignores stocks auto-pay claim")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, shopsReason) == false,
+    "Shops cannotPay via stocks checking")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, stocksReason) == true,
+    "Stocks reason still uses stocks claim")
 end
 
 io.write(string.format("\n%d passed, %d failed\n", passed, failures))
