@@ -306,22 +306,25 @@ local function payout(spec)
   return false, problem or "payout destination refused"
 end
 
+--- Stored Wallet cash-on-hand (deposit capacity / bank displays). Never Spendable.
+local function getWalletMoney()
+  return walletBalance("money")
+end
+
 --- Derived Spendable for a purchase reason: Wallet + claimed auto-pay checking (never stored).
 local function getSpendableMoney(reason)
   local bank = overhaul_career_economy_bank
   if bank and bank.getSpendableMoney then
     return bank.getSpendableMoney(reason)
   end
-  if overhaul_career_economy_playerAttributes and overhaul_career_economy_playerAttributes.getAttributeValue then
-    return tonumber(overhaul_career_economy_playerAttributes.getAttributeValue("money")) or 0
-  end
-  return 0
+  return getWalletMoney()
 end
 
 M.canPay = canPay
 M.pay = pay
 M.reward = reward
 M.payout = payout
+M.getWalletMoney = getWalletMoney
 M.getSpendableMoney = getSpendableMoney
 M.registerWageHolder = wageHolders.register
 M.onExtensionLoaded = servicePolicies.refresh

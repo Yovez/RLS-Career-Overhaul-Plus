@@ -152,7 +152,11 @@ const handleSubmit = async () => {
 
 onMounted(async () => {
     try {
-      walletBalance.value = await lua.overhaul_career_economy_playerAttributes.getAttributeValue('money') || 0
+      // Initial deposit capacity is Wallet only — never Spendable (Payment Domain #9).
+      const wallet = await lua.overhaul_career_economy_payment.getWalletMoney()
+      walletBalance.value = Number.isFinite(Number(wallet))
+        ? Number(wallet)
+        : (await lua.overhaul_career_economy_playerAttributes.getAttributeValue('money') || 0)
     } catch (e) {
       reportUiFailure(e, "Failed to load wallet balance:")
     }
