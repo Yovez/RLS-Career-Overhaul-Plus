@@ -132,7 +132,7 @@ Career UI is the bulk: bank, business computer, cargo, house, marketplace, phone
 
 - **Activities**: jobs/events often implement an activity interface + `gameplay/overhaul/activities/*.json`
 - **Employment**: shift work funnels through `career/work/employment*` with kind-specific modules
-- **Ledger / payment**: economy helpers under `career/economy` + `lib/ledger` / `lib/finance`
+- **Payment Domain / ledger**: Plus Claimed Domain facade in `career/economy/payment.lua` (Wallet + Accounts stored; Spendable derived). Bank automation is a feature of Payment Domain. Helpers under `lib/ledger` / `lib/finance`.
 - **Save**: `career/saveSystem.lua`, `saveMigration.lua`, plus `gameplay/overhaul/save/`
 - **Optional / soft load**: shell uses `optional()` wrappers so missing pieces do not hard-crash startup
 
@@ -142,7 +142,7 @@ Career UI is the bulk: bank, business computer, cargo, house, marketplace, phone
 |----------------|------------------|
 | Mod won’t start / wrong game version | `modScript.lua`, `shell/extensionManager.lua` |
 | Career load order / missing feature | `career/owners`, `career/modules`, owner scopes |
-| Money / XP / difficulty | `career/economy/`, `gameplay/overhaul/economy/` |
+| Money / XP / difficulty | `career/economy/` (Payment Domain: `payment.lua`, `bank.lua`, Wallet in `playerAttributes*`), `gameplay/overhaul/economy/` |
 | A specific job loop | `jobs/<name>/` + matching `activities/*.json` + level sites |
 | Phone app | `phone/` + Vue phone catalog under career utils |
 | UI layout / screen bug | `ui/ui-vue/mods/rls_career_overhaul/` |

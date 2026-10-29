@@ -84,7 +84,8 @@ Respect ADR-0001 (Cherry-pick-track): Plus Wins on this Claimed Domain; do not r
 
 ## Further Notes
 
-- Glossary: GLOSSARY.md. Architecture: docs/adr/0001-cherry-pick-track.md, docs/FORK_NOTES.md.
+- Glossary: GLOSSARY.md. Architecture: docs/adr/0001-cherry-pick-track.md, docs/FORK_NOTES.md. Catalog: docs/SYSTEMS_CATALOG.md. Player-facing claim notes: docs/CHANGELOG_FORK.md.
 - Claim order after this: Housing Domain → Marketplace Domain. Job Broker is already Claimed.
 - Known pain: some UIs still read Wallet-only or conflate Spendable into playerAttributes.money; fixing that class of bugs is in scope when those UIs are payment gates.
 - Seams confirmed with maintainer: payment facade primary; automation config + reason→bucket supporting; Housing/Marketplace/employment redesign out.
+- Save conservation (#10): Best-effort Import asserts moneyTotal (Wallet + Accounts + pending transfers + escrow + import savings interest) in `shell/saveImport/prepare.lua`. Plus bank/Wallet round-trip does not persist Spendable. Offline: `scripts/payment-save-conservation/`.

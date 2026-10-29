@@ -38,10 +38,10 @@ Rules of thumb:
 
 - **Must-port**: BeamNG version / API / UI shell breaks from Upstream RLS → port as Glue.
 - **Fits Life Sim**: gameplay ports only if they improve day-to-day money/housing/work/vehicles coherence, or are required Glue for a Claimed Domain.
-- **Plus Wins**: if Upstream RLS touches a Claimed Domain, skip by default unless Must-port or a deliberate adapted port.
-- **Best-effort Import**: Upstream RLS saves may load; Claimed Domains can extend or rewrite save data.
+- **Plus Wins**: if Upstream RLS touches a Claimed Domain, skip by default unless Must-port or a deliberate adapted port. **Payment Domain is Claimed** — never instruct agents or maintainers to bulk-merge Upstream RLS bank/payment/automation over Plus’s facade.
+- **Best-effort Import**: Upstream RLS saves may load; Claimed Domains can extend or rewrite save data. For money: import keeps **Wallet** (`playerAttributes.json`) and **Accounts** / automation (`bank.json`) when present; `shell/saveImport/prepare.lua` asserts conservation of Wallet + Accounts + pending transfers + known employment escrow (held wages) before finishing a slot. **Spendable** is never stored, so import cannot invent or drop a third balance. Offline verify: `scripts/payment-save-conservation/`.
 
-Claim order (redesign, not endless patches): **Payment Domain** → **Housing Domain** → **Marketplace Domain**. Employment stays Glue until after Payment and Housing. Job Broker is already Claimed.
+Claim order (redesign, not endless patches): **Payment Domain** → **Housing Domain** → **Marketplace Domain**. Employment stays Glue until after Payment and Housing. Job Broker is already Claimed. Do not expand Payment Domain work into Housing or Marketplace redesign.
 
 Rare bulk merge is allowed only as an exception (e.g. overwhelming Must-port surface), on a throwaway branch — not the default workflow.
 
@@ -96,7 +96,7 @@ Keep ports focused per change so review stays small.
 1. Find the system in [SYSTEMS_CATALOG.md](SYSTEMS_CATALOG.md). Prefer glossary terms from [GLOSSARY.md](../GLOSSARY.md).
 2. Prefer data tweaks in `gameplay/overhaul/` when the knob already exists — unless the area is a Claimed Domain you are redesigning.
 3. Keep AGPL / bCDDL notices; update `licenses/RLS-AGPL-SCOPE.md` only when adding new original RLS-scoped files (upstream process; mirror if you redistribute).
-4. Test: new career + Best-effort Import of an older save if you touch economy or save paths.
+4. Test: new career + Best-effort Import of an older save if you touch economy or save paths. For Payment Domain / money paths, also run `python scripts/payment-save-conservation/run.py` and confirm Wallet + Accounts (+ known escrow) still conserve.
 5. Log intentional divergences in `docs/CHANGELOG_FORK.md`.
 
 ## Known upstream workflow quirks

@@ -4,6 +4,13 @@ Divergences in **RLS Career Overhaul Plus** (`Yovez/RLS-Career-Overhaul-Plus`) f
 
 ## Unreleased
 
+### Payment Domain (Claimed Domain)
+- **One money story:** purchases and life-cost spends go through the Payment Domain facade (`canPay` / `getSpendableMoney` / `pay` / `reward`). With auto-pay on for a category, checking covers first (full or split) then Wallet; with auto-pay off, that category uses Wallet only.
+- **Wallet vs Account vs Spendable:** Wallet is cash-on-hand; bank checking/savings are Accounts; Spendable is a derived affordability number for a purchase reason (Wallet + the claimed auto-pay Account). Spendable is never a third saved balance. Bank deposit / cash-on-hand UI stays on Wallet truth so auto-pay cannot inflate what you can deposit.
+- **Surfaces wired to Spendable:** vehicle dealership (list/filters/checkout), parts/shops, Phone Marketplace buy tab, maintenance/garage money gates, life-costs (fuel/fines/insurance/etc. when bucketed), and stock buys (`stocks` auto-pay).
+- **Saves:** Best-effort Import of an Upstream RLS career keeps Wallet, Accounts, and automation when present; the importer asserts money conservation (Wallet + Accounts + known escrow/held wages). Existing Plus saves round-trip the same stored balances after Payment Domain work — claiming the domain does not silently rewrite balances. Offline check: `scripts/payment-save-conservation/`.
+- **Upstream policy:** Payment Domain is Plus Wins under Cherry-pick-track. Do **not** bulk-merge Upstream RLS over this domain; port only Must-port Glue or deliberately adapted Fits Life Sim changes (see ADR-0001 / `docs/FORK_NOTES.md`).
+
 ### Install / workflow
 - Prefer **unpacked** mod at `E:\BeamMP\current\mods\unpacked\rls_career_overhaul` (junction to this repo). Disable competing Overhaul zips; no re-zip for every Lua/UI tweak.
 - Keep this file + `docs/` fork-local when merging upstream.

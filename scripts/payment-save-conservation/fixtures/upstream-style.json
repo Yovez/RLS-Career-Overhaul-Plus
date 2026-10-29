@@ -1,0 +1,30 @@
+{
+  "label": "Upstream RLS-style slot (Wallet + Accounts, no automation)",
+  "career/playerAttributes.json": {
+    "money": { "value": 12500.5, "gains": {}, "losses": {} }
+  },
+  "career/rls_career/bank.json": {
+    "accounts": [
+      {
+        "id": "checking-1",
+        "type": "personal",
+        "accountType": "checking",
+        "balance": 4000
+      },
+      {
+        "id": "savings-1",
+        "type": "personal",
+        "accountType": "savings",
+        "balance": 8000,
+        "accruedInterest": 12.25,
+        "segmentBalance": 8000,
+        "sinceSegmentStart": 0
+      }
+    ],
+    "pendingTransfers": [],
+    "transactions": []
+  },
+  "career/rls_career/logisticsEmployment.json": {
+    "escrow": { "money": 350, "legs": [] }
+  }
+}

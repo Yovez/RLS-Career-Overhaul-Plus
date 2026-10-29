@@ -1,0 +1,74 @@
+{
+  "label": "Plus slot (Wallet + Accounts + automation + escrow + pending transfer)",
+  "career/playerAttributes.json": {
+    "money": { "value": 2200, "gains": {}, "losses": {} }
+  },
+  "career/rls_career/bank.json": {
+    "accounts": [
+      {
+        "id": "checking-main",
+        "type": "personal",
+        "accountType": "checking",
+        "balance": 15000
+      },
+      {
+        "id": "savings-main",
+        "type": "personal",
+        "accountType": "savings",
+        "balance": 5000,
+        "accruedInterest": 0,
+        "segmentBalance": 5000,
+        "sinceSegmentStart": 0
+      }
+    ],
+    "pendingTransfers": [
+      { "id": "xfer-1", "amount": 750 }
+    ],
+    "transactions": [],
+    "automation": {
+      "accounts": {
+        "checking-main": {
+          "autoPayEnabled": true,
+          "autoPay": {
+            "vehicles": true,
+            "shops": true,
+            "stocks": false,
+            "fines": false,
+            "insurance": false,
+            "loans": false,
+            "repairs": false,
+            "fuel": false,
+            "services": false,
+            "property": false,
+            "other": false
+          },
+          "autoDeposit": {
+            "enabled": true,
+            "walletFloor": 500,
+            "percent": 100,
+            "income": {
+              "reward": true,
+              "sale": true,
+              "interest": true,
+              "refund": true,
+              "other": true
+            }
+          },
+          "autoInvest": { "enabled": false },
+          "balanceRules": []
+        }
+      },
+      "payClaims": {
+        "vehicles": "checking-main",
+        "shops": "checking-main"
+      }
+    }
+  },
+  "career/rls_career/logisticsEmployment.json": {
+    "employments": {
+      "west_coast": {
+        "escrow": { "money": 1280.4, "legs": [{ "money": 1280.4 }] }
+      }
+    }
+  }
+}
