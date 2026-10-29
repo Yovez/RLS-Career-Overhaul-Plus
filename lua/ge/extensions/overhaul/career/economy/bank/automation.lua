@@ -124,7 +124,9 @@ function M.spendBucket(reason)
   if category == "service" then return "services" end
   if category == "property" then return "property" end
   if category == "purchase" then
-    if finance.vehicleId or tagSet.vehicleBought or tagSet.buying or tagSet.vehicle then
+    -- Vehicle purchases only: vehicleBought / vehicle tags. Generic "buying" and
+    -- finance.vehicleId are used by parts/paint/tune ledger reasons and must map to shops.
+    if tagSet.vehicleBought or tagSet.vehicle then
       return "vehicles"
     end
     return "shops"
