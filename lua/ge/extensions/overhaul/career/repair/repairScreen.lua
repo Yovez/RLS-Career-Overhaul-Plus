@@ -107,7 +107,11 @@ local function buildRoadsidePopupPayload()
     invVehId = data.vehicleData.invVehId,
     private = {
       price = privatePrice,
-      canPay = overhaul_career_economy_payment.canPay({ money = { amount = privatePrice, canBeNegative = false } }),
+      canPay = overhaul_career_economy_payment.canPay(
+        { money = { amount = privatePrice, canBeNegative = false } },
+        nil,
+        { category = "repair", finance = { vehicleId = data.vehicleData.invVehId } }
+      ),
       repairTimeCost = privateChoice and privateChoice.premiumInfluence or 0,
       damageCost = data.vehicleData.damageCost,
       repairTimeOptionId = privateChoice and privateChoice.id,
@@ -120,7 +124,11 @@ local function buildRoadsidePopupPayload()
     local insurancePrice = insuranceChoice and insuranceChoice.totalPrice or insuranceData.deductible
     payload.insurance = {
       price = insurancePrice,
-      canPay = overhaul_career_economy_payment.canPay({ money = { amount = insurancePrice, canBeNegative = false } }),
+      canPay = overhaul_career_economy_payment.canPay(
+        { money = { amount = insurancePrice, canBeNegative = false } },
+        nil,
+        { category = "repair", finance = { vehicleId = data.vehicleData.invVehId } }
+      ),
       repairTimeCost = insuranceChoice and (insuranceChoice.premiumInfluence or 0) or 0,
       deductible = insuranceData.deductible,
       repairTimeOptionId = insuranceChoice and insuranceChoice.id,
@@ -359,7 +367,11 @@ getRepairData = function()
 
   for _, choiceData in pairs(data.repairOptions.noInsuranceRepairData.repairTimeOptions.choices) do
     local totalPrice = choiceData.premiumInfluence + data.vehicleData.damageCost
-    local canPay = overhaul_career_economy_payment.canPay({money = {amount = totalPrice, canBeNegative = false}})
+    local canPay = overhaul_career_economy_payment.canPay(
+      {money = {amount = totalPrice, canBeNegative = false}},
+      nil,
+      { category = "repair", finance = { vehicleId = data.vehicleData.invVehId } }
+    )
     choiceData.totalPrice = totalPrice
     choiceData.canPay = canPay
     choiceData.repairTimePrice = choiceData.oldPremiumInfluence and choiceData.oldPremiumInfluence or choiceData.premiumInfluence

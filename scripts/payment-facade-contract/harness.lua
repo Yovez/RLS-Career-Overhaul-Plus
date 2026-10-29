@@ -352,6 +352,73 @@ do
     "Reward does not persist Spendable")
 end
 
+---------------------------------------------------------------------------
+-- Life-cost buckets (#7): fines, fuel, repairs, insurance, loans, property
+---------------------------------------------------------------------------
+
+local lifeCostReasons = {
+  { bucket = "fines", reason = { category = "fine", tags = { "fine" } } },
+  { bucket = "fuel", reason = { category = "fuel", tags = { "fuel", "buying" } } },
+  { bucket = "repairs", reason = { category = "repair" } },
+  { bucket = "insurance", reason = { category = "insurance" } },
+  { bucket = "loans", reason = { category = "loan" } },
+  { bucket = "property", reason = { category = "property" } },
+}
+
+for _, entry in ipairs(lifeCostReasons) do
+  expect(spendBucket(entry.reason) == entry.bucket,
+    "Life-cost reason maps to " .. entry.bucket .. " bucket")
+end
+
+for _, entry in ipairs(lifeCostReasons) do
+  do
+    local world = makeWorld({ wallet = 25, checking = 400, claimBucket = entry.bucket })
+    installWorld(world)
+    local price = { money = { amount = 300 } }
+    expect(nearly(payment.getSpendableMoney(entry.reason), 425),
+      entry.bucket .. " auto-pay on: Spendable = Wallet + checking")
+    expect(payment.canPay(price, nil, entry.reason) == true,
+      entry.bucket .. " auto-pay on: canPay uses claimed checking")
+    expect(payment.pay(price, entry.reason) == true,
+      entry.bucket .. " auto-pay on: pay uses claimed checking")
+    expect(nearly(world.bank.getAccountBalance("chk1"), 100),
+      entry.bucket .. " auto-pay on: checking debited first")
+    expect(nearly(world.playerAttributes._wallet(), 25),
+      entry.bucket .. " auto-pay on: Wallet untouched when checking covers")
+  end
+
+  do
+    local world = makeWorld({ wallet = 250, checking = 900, claimBucket = nil })
+    if world.accounts.chk1 == nil then
+      world.accounts.chk1 = { id = "chk1", type = "personal", accountType = "checking", balance = 900 }
+    end
+    installWorld(world)
+    local price = { money = { amount = 100 } }
+    expect(nearly(payment.getSpendableMoney(entry.reason), 250),
+      entry.bucket .. " auto-pay off: Spendable equals Wallet")
+    expect(payment.canPay(price, nil, entry.reason) == true,
+      entry.bucket .. " auto-pay off: canPay from Wallet")
+    expect(payment.pay(price, entry.reason) == true,
+      entry.bucket .. " auto-pay off: pay from Wallet")
+    expect(nearly(world.bank.getAccountBalance("chk1"), 900),
+      entry.bucket .. " auto-pay off: checking untouched")
+    expect(nearly(world.playerAttributes._wallet(), 150),
+      entry.bucket .. " auto-pay off: Wallet debited")
+  end
+end
+
+-- Wrong life-cost bucket must not steal another claim (fuel claim vs fines reason).
+do
+  local world = makeWorld({ wallet = 10, checking = 5000, claimBucket = "fuel" })
+  installWorld(world)
+  local finesReason = { category = "fine", tags = { "fine" } }
+  local fuelReason = { category = "fuel" }
+  expect(payment.canPay({ money = { amount = 100 } }, nil, finesReason) == false,
+    "Life-cost wrong bucket: fines cannot use fuel claim")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, fuelReason) == true,
+    "Life-cost wrong bucket: fuel reason still uses fuel claim")
+end
+
 io.write(string.format("\n%d passed, %d failed\n", passed, failures))
 if failures > 0 then
   os.exit(1)

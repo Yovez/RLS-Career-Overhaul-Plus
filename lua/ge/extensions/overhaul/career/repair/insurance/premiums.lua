@@ -581,7 +581,11 @@ function partFactory.new(inputs)
       color = insuranceInfo.color,
       perks = insuranceInfo.perks,
       paperworkFees = insuranceInfo.paperworkFees,
-      canPayPaperworkFees = overhaul_career_economy_payment.canPay({money = {amount = insuranceInfo.paperworkFees, canBeNegative = false}}),
+      canPayPaperworkFees = overhaul_career_economy_payment.canPay(
+        {money = {amount = insuranceInfo.paperworkFees, canBeNegative = false}},
+        nil,
+        {category = "insurance", finance = {vehicleRelated = false}}
+      ),
       slogan = insuranceInfo.slogan,
       carsInsuredCount = #carsInsured,
       carsInsured = carsInsured,
