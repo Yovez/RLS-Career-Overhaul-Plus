@@ -166,6 +166,8 @@ local function findHolding(list, symbol)
   return nil, nil
 end
 
+-- Purchase reasons must map to the stocks spend bucket (finance.kind = "stocks")
+-- so Payment Domain auto-pay claims apply. Do not debit Wallet/Accounts outside the facade.
 local function stocksReason(label, description)
   return metadata.tag({
     label = label or "Stock trade",
@@ -187,12 +189,21 @@ local function dividendReason(label, description)
   }, "sale", { kind = "stocks", income = "dividends" })
 end
 
+local function stocksSpendReason()
+  return stocksReason("Stock purchase", "Spendable for stock market buys")
+end
+
+-- Player-facing stock money lines go through Payment Domain canPay/pay only.
+-- Nil accountId → stocks auto-pay (checking then Wallet) or Wallet-only when off.
+-- Explicit accountId (auto-invest) → that Account only, per facade rules.
 local function payMoney(amount, reason, accountId)
   amount = r2(amount)
   if amount <= 0 then return true end
   local payment = overhaul_career_economy_payment
-  if not payment or not payment.pay then return false end
-  return payment.pay({ money = { amount = amount } }, reason, accountId) == true
+  if not payment or not payment.pay or not payment.canPay then return false end
+  local price = { money = { amount = amount } }
+  if payment.canPay(price, accountId, reason) ~= true then return false end
+  return payment.pay(price, reason, accountId) == true
 end
 
 local function rewardMoney(amount, reason, accountId)
@@ -510,6 +521,14 @@ function M.getOverview()
   local brokerHoldingsValue = 0
   for _, h in ipairs(brokerHoldings) do brokerHoldingsValue = brokerHoldingsValue + h.value end
   local feeRate = loadConfig().brokerFeeRate
+  local wallet = overhaul_career_economy_playerAttributes
+    and (overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0) or 0
+  -- Wallet = cash-on-hand; Spendable = derived for stocks purchase reason (auto-pay aware).
+  local spendableMoney = wallet
+  local payment = overhaul_career_economy_payment
+  if payment and payment.getSpendableMoney then
+    spendableMoney = r2(payment.getSpendableMoney(stocksSpendReason()) or 0)
+  end
   return {
     markets = marketRows(),
     portfolio = portfolio,
@@ -527,8 +546,8 @@ function M.getOverview()
     },
     transactions = state.transactions,
     brokerLog = state.brokerLog,
-    wallet = overhaul_career_economy_playerAttributes
-      and (overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0) or 0,
+    wallet = wallet,
+    spendableMoney = spendableMoney,
     manualFeeRate = loadConfig().manualFeeRate,
   }
 end

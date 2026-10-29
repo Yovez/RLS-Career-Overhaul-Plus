@@ -155,8 +155,12 @@
           <input v-model.number="tradeShares" v-bng-text-input type="number" min="1" :max="trade.maxShares || undefined" inputmode="numeric" @keydown.stop @keyup.stop @keypress.stop />
         </label>
         <p class="est">Est. {{ trade.mode === 'sell' ? 'proceeds' : 'cost' }}: ${{ fmt(tradeEstimate) }}</p>
+        <p v-if="trade.mode === 'buy'" class="est spendable">
+          Spendable: ${{ fmt(overview.spendableMoney) }}
+          <span v-if="!canAffordBuy" class="short"> · not enough</span>
+        </p>
         <div class="confirm-actions">
-          <button type="button" class="btn" @click="confirmTrade">Confirm</button>
+          <button type="button" class="btn" :disabled="trade.mode === 'buy' && !canAffordBuy" @click="confirmTrade">Confirm</button>
           <button type="button" class="btn ghost" @click="trade = null">Cancel</button>
         </div>
       </div>
@@ -216,7 +220,18 @@ const filteredMarkets = computed(() => {
 const tradeEstimate = computed(() => {
   if (!trade.value) return 0
   const n = Math.max(1, Math.floor(Number(tradeShares.value) || 0))
-  return (Number(trade.value.price) || 0) * n
+  const notional = (Number(trade.value.price) || 0) * n
+  if (trade.value.mode === 'sell') return notional
+  const feeRate = Number(overview.value.manualFeeRate) || 0
+  return notional * (1 + feeRate)
+})
+
+// Buy gate uses Spendable for stocks reason (Payment Domain), not Wallet alone.
+const canAffordBuy = computed(() => {
+  if (!trade.value || trade.value.mode !== 'buy') return true
+  const spendable = Number(overview.value.spendableMoney)
+  const available = Number.isFinite(spendable) ? spendable : Number(overview.value.wallet) || 0
+  return tradeEstimate.value <= available + 0.0001
 })
 
 function fmt(n) {
@@ -601,6 +616,11 @@ onUnmounted(() => {
   }
 
   &.full { width: 100%; margin-bottom: 12px; }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
 
 .mini {
@@ -664,6 +684,12 @@ onUnmounted(() => {
     color: rgba(255, 255, 255, 0.55);
   }
   .est { font-size: 12.5px; font-weight: 600; margin: 8px 0 12px; }
+  .est.spendable {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: -4px;
+  }
+  .est .short { color: #fca5a5; }
 }
 
 .confirm-actions {
