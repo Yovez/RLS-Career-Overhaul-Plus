@@ -22,7 +22,8 @@ function isNegotiable(vehicle) {
 
 /**
  * Filter + sort for the phone Marketplace buy feed (private listings only).
- * Caller owns the raw listing list and player balance.
+ * Caller owns the raw listing list and buy-tab Spendable (payment facade /
+ * spendableMoney for the vehicles purchase reason — not walletMoney).
  */
 export function usePhoneMarketplaceFilters({ listings, playerBalance, searchQuery }) {
   const filterForm = reactive({

@@ -352,6 +352,64 @@ do
     "Reward does not persist Spendable")
 end
 
+---------------------------------------------------------------------------
+-- #5 Phone Marketplace buy-tab — affordability reason matches vehicle pay
+---------------------------------------------------------------------------
+
+-- Same reason Phone Marketplace / vehicle shopping list gates must pass to
+-- getSpendableMoney / canPay (vehicleShopping/ui.lua vehicleSpendReason).
+local marketplaceBuyReason = {
+  category = "purchase",
+  tags = { "vehicleBought", "buying" },
+  label = "Vehicle purchase",
+}
+
+do
+  -- AC: buy-tab gates use Spendable when vehicles auto-pay is on
+  local world = makeWorld({ wallet = 80, checking = 4200, claimBucket = "vehicles" })
+  installWorld(world)
+  local listingPrice = 2500
+  local spendable = payment.getSpendableMoney(marketplaceBuyReason)
+  expect(nearly(spendable, 4280), "#5 auto-pay on: Spendable = Wallet + vehicles checking")
+  expect(payment.canPay({ money = { amount = listingPrice } }, nil, marketplaceBuyReason) == true,
+    "#5 auto-pay on: canPay true when Spendable covers listing")
+  expect(nearly(world.playerAttributes._wallet(), 80),
+    "#5 auto-pay on: Wallet (cash-on-hand / deposit) stays 80, not Spendable")
+  expect(world.playerAttributes._wallet() < spendable,
+    "#5 auto-pay on: Wallet display must not equal inflated Spendable")
+end
+
+do
+  -- AC: auto-pay off → buy-tab Spendable / canPay use Wallet only
+  local world = makeWorld({ wallet = 900, checking = 7000, claimBucket = nil })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(marketplaceBuyReason), 900),
+    "#5 auto-pay off: Spendable equals Wallet")
+  expect(payment.canPay({ money = { amount = 500 } }, nil, marketplaceBuyReason) == true,
+    "#5 auto-pay off: canPay from Wallet")
+  expect(payment.canPay({ money = { amount = 1200 } }, nil, marketplaceBuyReason) == false,
+    "#5 auto-pay off: cannot use checking for marketplace buy")
+  expect(nearly(world.playerAttributes._wallet(), 900),
+    "#5 auto-pay off: Wallet unchanged by affordability check")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 7000),
+    "#5 auto-pay off: checking untouched by affordability check")
+end
+
+do
+  -- AC: marketplace vehicle buy must not read shops-only Spendable / Wallet while vehicles auto-pay covers
+  local world = makeWorld({ wallet = 60, checking = 3000, claimBucket = "vehicles" })
+  installWorld(world)
+  local listingPrice = 1000
+  expect(nearly(payment.getSpendableMoney(shopsReason), 60),
+    "#5 no wallet-only path: shops Spendable ignores vehicles claim")
+  expect(payment.canPay({ money = { amount = listingPrice } }, nil, shopsReason) == false,
+    "#5 no wallet-only path: shops canPay false (would grey listing wrongly)")
+  expect(nearly(payment.getSpendableMoney(marketplaceBuyReason), 3060),
+    "#5 no wallet-only path: marketplace vehicle reason uses vehicles Spendable")
+  expect(payment.canPay({ money = { amount = listingPrice } }, nil, marketplaceBuyReason) == true,
+    "#5 no wallet-only path: marketplace buy canPay true under vehicles auto-pay")
+end
+
 io.write(string.format("\n%d passed, %d failed\n", passed, failures))
 if failures > 0 then
   os.exit(1)
