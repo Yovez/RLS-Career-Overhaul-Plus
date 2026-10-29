@@ -352,6 +352,101 @@ do
     "Reward does not persist Spendable")
 end
 
+---------------------------------------------------------------------------
+-- #3 Vehicle dealership — same facade reason list / checkout / pay must agree
+---------------------------------------------------------------------------
+
+-- Dealership listing affordability reason (matches vehicleShopping/ui.lua vehicleSpendReason).
+local dealershipListReason = {
+  category = "purchase",
+  tags = { "vehicleBought", "buying" },
+  label = "Vehicle purchase",
+}
+
+-- Dealership checkout/pay reason (matches purchase.lua vehiclePurchaseReason finance shape).
+local dealershipPayReason = {
+  category = "purchase",
+  finance = { vehicleName = "Test Coupe", locationId = "dealer_a", locationName = "Test Motors" },
+  tags = { "vehicleBought", "buying" },
+  label = "Bought a vehicle: Test Coupe",
+}
+
+do
+  -- AC: auto-pay on + low Wallet + enough checking → Spendable covers listing price
+  local world = makeWorld({ wallet = 50, checking = 9500, claimBucket = "vehicles" })
+  installWorld(world)
+  local price = 4000
+  local spendable = payment.getSpendableMoney(dealershipListReason)
+  expect(nearly(spendable, 9550), "#3 list: Spendable = low Wallet + vehicles checking")
+  expect(payment.canPay({ money = { amount = price } }, nil, dealershipListReason) == true,
+    "#3 list: canPay true when Spendable covers vehicle")
+  expect(nearly(world.playerAttributes._wallet(), 50),
+    "#3 list: Wallet (deposit capacity) stays 50, not Spendable")
+  expect(world.playerAttributes._wallet() < spendable,
+    "#3 list: Wallet display must not equal inflated Spendable")
+end
+
+do
+  -- AC: same setup → checkout canPay + pay: checking then Wallet
+  local world = makeWorld({ wallet = 50, checking = 9500, claimBucket = "vehicles" })
+  installWorld(world)
+  local price = { money = { amount = 4000 } }
+  expect(payment.canPay(price, nil, dealershipPayReason) == true,
+    "#3 checkout: canPay agrees with list Spendable for pay reason")
+  expect(payment.pay(price, dealershipPayReason) == true, "#3 purchase: pay succeeds")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 5500),
+    "#3 purchase: checking debited first (9500-4000)")
+  expect(nearly(world.playerAttributes._wallet(), 50),
+    "#3 purchase: Wallet untouched when checking covers full price")
+end
+
+do
+  -- AC: split debit when checking alone is short
+  local world = makeWorld({ wallet = 800, checking = 1200, claimBucket = "vehicles" })
+  installWorld(world)
+  local price = { money = { amount = 1500 } }
+  expect(nearly(payment.getSpendableMoney(dealershipListReason), 2000),
+    "#3 split: list Spendable covers package")
+  expect(payment.canPay(price, nil, dealershipPayReason) == true, "#3 split: checkout canPay")
+  expect(payment.pay(price, dealershipPayReason) == true, "#3 split: pay succeeds")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 0), "#3 split: checking drained first")
+  expect(nearly(world.playerAttributes._wallet(), 500), "#3 split: Wallet covers remainder")
+end
+
+do
+  -- AC: insufficient Spendable → UI and purchase both refuse
+  local world = makeWorld({ wallet = 40, checking = 100, claimBucket = "vehicles" })
+  installWorld(world)
+  local price = { money = { amount = 500 } }
+  expect(nearly(payment.getSpendableMoney(dealershipListReason), 140),
+    "#3 refuse: Spendable below vehicle price")
+  expect(payment.canPay(price, nil, dealershipListReason) == false,
+    "#3 refuse: list/UI canPay false")
+  expect(payment.canPay(price, nil, dealershipPayReason) == false,
+    "#3 refuse: checkout canPay false")
+  expect(payment.pay(price, dealershipPayReason) == false, "#3 refuse: pay rejected")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 100), "#3 refuse: checking unchanged")
+  expect(nearly(world.playerAttributes._wallet(), 40), "#3 refuse: Wallet unchanged")
+end
+
+do
+  -- AC: vehicles auto-pay off → affordability and pay use Wallet only
+  local world = makeWorld({ wallet = 600, checking = 8000, claimBucket = nil })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(dealershipListReason), 600),
+    "#3 auto-pay off: Spendable equals Wallet")
+  expect(payment.canPay({ money = { amount = 500 } }, nil, dealershipPayReason) == true,
+    "#3 auto-pay off: canPay from Wallet")
+  expect(payment.canPay({ money = { amount = 700 } }, nil, dealershipPayReason) == false,
+    "#3 auto-pay off: cannot use checking")
+  expect(payment.pay({ money = { amount = 200 } }, dealershipPayReason) == true,
+    "#3 auto-pay off: pay from Wallet")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 8000),
+    "#3 auto-pay off: checking untouched")
+  expect(nearly(world.playerAttributes._wallet(), 400),
+    "#3 auto-pay off: Wallet debited")
+end
+
 io.write(string.format("\n%d passed, %d failed\n", passed, failures))
 if failures > 0 then
   os.exit(1)

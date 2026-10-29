@@ -192,8 +192,8 @@
               <span class="price"><BngUnit class="money" :money="vehiclePurchaseStore.finalPackagePrice" /></span>
             </div>
             <div class="balance-line">
-              <span class="label">{{ vehiclePurchaseStore.racingTeamVehicleShop ? "Team account" : "Your cash" }}</span>
-              <span class="price"><BngUnit class="money" :money="vehiclePurchaseStore.racingTeamVehicleShop ? vehiclePurchaseStore.racingTeamBusinessMoney : vehiclePurchaseStore.playerMoney" /></span>
+              <span class="label">{{ vehiclePurchaseStore.racingTeamVehicleShop ? "Team account" : "Available to spend" }}</span>
+              <span class="price"><BngUnit class="money" :money="vehiclePurchaseStore.racingTeamVehicleShop ? vehiclePurchaseStore.racingTeamBusinessMoney : vehiclePurchaseStore.spendableMoney" /></span>
             </div>
             <div v-if="vehiclePurchaseStore.testDriveDamageFee > 0" class="notice bad test-drive-damage-warning">
               <span class="label"><BngIcon type="danger" /> {{ $translate.instant("ui.career.vehiclePurchase.testDriveDamageWarning") }}</span>

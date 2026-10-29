@@ -21,6 +21,7 @@ function createPurchaseViews({ racingTeamFleetPurchase, racingTeamBusinessMoney,
     if (isRacingTeamVehicleShop()) {
       return Number(racingTeamBusinessMoney.value) || 0
     }
+    // playerMoney is vehicles Spendable from Lua (legacy field); prefer explicit spendableMoney when sent.
     return Number(playerMoney.value) || 0
   })
 
@@ -49,7 +50,7 @@ function createPurchaseViews({ racingTeamFleetPurchase, racingTeamBusinessMoney,
 
 // Applies each vehiclePurchaseData payload to the refs and owns the delivery quote requests it starts.
 // The purchase key and quote counter are closure state: a reset invalidates quotes still in flight.
-function createPurchaseIntake({ vehicleInfo, playerMoney, racingTeamFleetPurchase, racingTeamBusinessMoney, inventoryHasFreeSlot, garageAvailability, purchaseType, tradeInEnabled, locationSelectionEnabled, forceNoDelivery, prices, garageDeliveryAllowed, deliveryGarages, selectedGarageId, deliveryQuote, makeDelivery, freightAvailable, freightUnavailableReason, buyCustomLicensePlate, customLicensePlateText, dealershipId, forceTradeIn, insuranceOptions, testDriveDamageFee, tradeInVehicleInfo }) {
+function createPurchaseIntake({ vehicleInfo, playerMoney, walletMoney, racingTeamFleetPurchase, racingTeamBusinessMoney, inventoryHasFreeSlot, garageAvailability, purchaseType, tradeInEnabled, locationSelectionEnabled, forceNoDelivery, prices, garageDeliveryAllowed, deliveryGarages, selectedGarageId, deliveryQuote, makeDelivery, freightAvailable, freightUnavailableReason, buyCustomLicensePlate, customLicensePlateText, dealershipId, forceTradeIn, insuranceOptions, testDriveDamageFee, tradeInVehicleInfo }) {
   let activePurchaseKey = null
   let deliveryQuoteRequest = 0
 
@@ -59,7 +60,10 @@ function createPurchaseIntake({ vehicleInfo, playerMoney, racingTeamFleetPurchas
     activePurchaseKey = purchaseKey
     deliveryQuoteRequest++
     vehicleInfo.value = data.vehicleInfo
-    playerMoney.value = data.playerMoney
+    // Buy gates use Spendable; prefer explicit spendableMoney, else legacy playerMoney (also Spendable).
+    const spendable = data.spendableMoney != null ? data.spendableMoney : data.playerMoney
+    playerMoney.value = spendable
+    walletMoney.value = data.walletMoney != null ? Number(data.walletMoney) || 0 : 0
     racingTeamFleetPurchase.value = data.racingTeamFleetPurchase === true
     racingTeamBusinessMoney.value = data.racingTeamBusinessMoney != null ? Number(data.racingTeamBusinessMoney) || 0 : 0
     inventoryHasFreeSlot.value = data.inventoryHasFreeSlot
@@ -128,7 +132,10 @@ export const useVehiclePurchaseStore = defineStore("overhaulVehiclePurchase", ()
 
   const purchaseType = ref("")
   const vehicleInfo = ref({})
+  /** Vehicles Spendable for buy gates (legacy name playerMoney). */
   const playerMoney = ref(0)
+  /** Wallet cash-on-hand; must not be used for vehicle affordability when auto-pay applies. */
+  const walletMoney = ref(0)
   const racingTeamBusinessMoney = ref(0)
   const alreadyDidTestDrive = ref(false)
   const inventoryHasFreeSlot = ref(false)
@@ -168,6 +175,7 @@ export const useVehiclePurchaseStore = defineStore("overhaulVehiclePurchase", ()
   const { handlePurchaseData, requestDeliveryQuote, resetPurchaseIntake } = createPurchaseIntake({
     vehicleInfo,
     playerMoney,
+    walletMoney,
     racingTeamFleetPurchase,
     racingTeamBusinessMoney,
     inventoryHasFreeSlot,
@@ -273,6 +281,7 @@ export const useVehiclePurchaseStore = defineStore("overhaulVehiclePurchase", ()
     freightUnavailableReason,
     requestDeliveryQuote,
     playerMoney,
+    walletMoney,
     racingTeamBusinessMoney,
     spendableMoney,
     prices,

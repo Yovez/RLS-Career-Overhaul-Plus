@@ -88,18 +88,22 @@ function useShopVehicle(props) {
       return vehiclePrice.value > (Number.isFinite(team) ? team : 0)
     }
     if (data().cheatsMode) return false
-    // Prefer spendableMoney (wallet or vehicles auto-pay checking, whichever is higher).
+    // Affordability uses vehicles Spendable (Wallet + claimed checking), never Wallet alone.
     const spendable = Number(data().spendableMoney)
     if (Number.isFinite(spendable)) return vehiclePrice.value > spendable
-    const wallet = Number(data().playerAttributes?.money?.value ?? data().playerAttributes?.money ?? 0)
+    const wallet = Number(data().walletMoney ?? data().playerAttributes?.money?.value ?? data().playerAttributes?.money ?? 0)
     return vehiclePrice.value > wallet
   })
 
-  /** Taxi is always paid from the player's wallet; team shop payload omits personal cash from playerAttributes. */
+  /** Taxi is always paid from Wallet (cash-on-hand), never from Spendable / auto-pay checking. */
   const personalCashForTaxi = computed(() => {
     const d = data()
     if (d.playerPersonalMoneyForTaxi != null) {
       const n = Number(d.playerPersonalMoneyForTaxi)
+      return Number.isFinite(n) ? n : 0
+    }
+    if (d.walletMoney != null) {
+      const n = Number(d.walletMoney)
       return Number.isFinite(n) ? n : 0
     }
     const n = Number(d.playerAttributes?.money?.value ?? d.playerAttributes?.money)
