@@ -106,6 +106,10 @@ function M.new(inputs)
   local function canAffordMoney(amount)
     if overhaul_career_economy_cheats.isCheatsMode() then return true end
     amount = tonumber(amount) or 0
+    local payment = overhaul_career_economy_payment
+    if payment and payment.getSpendableMoney then
+      return payment.getSpendableMoney(vehiclePurchaseReason(nil, "vehicle afford check")) + 0.0001 >= amount
+    end
     local wallet = overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
     if wallet >= amount then return true end
     local bank = overhaul_career_economy_bank

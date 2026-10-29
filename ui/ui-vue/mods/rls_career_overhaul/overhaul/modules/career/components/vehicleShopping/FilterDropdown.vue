@@ -198,6 +198,8 @@ const filterBudgetMoney = computed(() => {
     const v = vehicleShoppingStore?.vehicleShoppingData?.racingTeamBusinessMoney
     return Number.isFinite(Number(v)) ? Number(v) : 0
   }
+  const spendable = Number(vehicleShoppingStore?.vehicleShoppingData?.spendableMoney)
+  if (Number.isFinite(spendable)) return spendable
   return playerMoney.value
 })
 

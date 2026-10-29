@@ -295,7 +295,11 @@ const financePurchase = async () => {
   })
   try {
     if (await financingPopup.promise) {
-      vehiclePurchaseStore.playerMoney = await lua.overhaul_career_economy_playerAttributes.getAttributeValue('money')
+      vehiclePurchaseStore.playerMoney = await lua.overhaul_career_economy_payment.getSpendableMoney({
+        category: 'purchase',
+        tags: ['vehicleBought', 'buying'],
+        label: 'Vehicle purchase',
+      })
       refocusIfLost(() => document.querySelector('.purchase-screen .buy-button:not([disabled])') || document.querySelector('.purchase-screen button:not([disabled]):not([bng-no-nav="true"])'))
     }
   } finally { financingPopup = null }

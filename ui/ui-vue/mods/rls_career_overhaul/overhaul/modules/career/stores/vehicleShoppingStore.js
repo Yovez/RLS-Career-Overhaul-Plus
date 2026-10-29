@@ -78,12 +78,14 @@ function createFilterMatching({ filters, searchQuery, sortField, sortDirection }
 
 // Which listings the shop shows: unsold stock, sold history and the by-dealer grouping, plus the spend cap they respect.
 function createListingViews({ vehicleShoppingData, filters, searchQuery }, { applyFiltersAndSearch, sortComparator }) {
-  /** Personal wallet or team business balance — whichever applies to the active shopping context. */
+  /** Personal spendable (wallet + vehicles auto-pay checking) or team business balance. */
   const getFilterSpendCap = () => {
     const d = vehicleShoppingData.value
     if (d?.racingTeamBusinessMoney != null && Number.isFinite(Number(d.racingTeamBusinessMoney))) {
       return Number(d.racingTeamBusinessMoney) || 0
     }
+    const spendable = Number(d?.spendableMoney)
+    if (Number.isFinite(spendable)) return spendable
     return Number(d?.playerAttributes?.money?.value ?? d?.playerAttributes?.money ?? 0) || 0
   }
 

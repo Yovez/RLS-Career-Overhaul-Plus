@@ -67,60 +67,113 @@ function servicePolicies.dispose()
 end
 
 
-local function canPay(price, accountId)
-  if accountId and overhaul_career_economy_bank then
-    local accountBalance = overhaul_career_economy_bank.getAccountBalance(accountId)
-    for currency, info in pairs(price) do
-      if currency == "money" then
-        if not info.canBeNegative and info.amount > 0 and accountBalance < info.amount then
-          return false
-        end
-      end
-    end
-    return true
+local function moneyAmount(price)
+  local info = price and price.money
+  return (info and tonumber(info.amount)) or 0
+end
+
+local function walletBalance(currency)
+  currency = currency or "money"
+  return tonumber(overhaul_career_economy_playerAttributes.getAttributeValue(currency)) or 0
+end
+
+-- Resolve auto-pay checking for this reason without requiring full balance (amount 0 skips that check).
+local function resolveAutoPayAccount(reason)
+  local bank = overhaul_career_economy_bank
+  if not (bank and bank.resolvePayAccount) then return nil end
+  return bank.resolvePayAccount(reason, 0)
+end
+
+-- Optional `reason` lets affordability checks honor checking auto-pay (checking first, wallet covers rest).
+local function canPay(price, accountId, reason)
+  local explicitAccount = accountId ~= nil and accountId ~= ""
+  if not explicitAccount then
+    accountId = resolveAutoPayAccount(reason)
   end
 
   if overhaul_career_economy_cheats and overhaul_career_economy_cheats.isCheatsMode() then
     return true
   end
 
+  local bank = overhaul_career_economy_bank
+  if accountId and bank then
+    local accountBalance = tonumber(bank.getAccountBalance(accountId)) or 0
+    for currency, info in pairs(price) do
+      if currency == "money" then
+        local amount = tonumber(info.amount) or 0
+        if info.canBeNegative or amount <= 0 then
+          -- ok
+        elseif explicitAccount then
+          if accountBalance < amount then return false end
+        else
+          -- Auto-pay: checking + wallet together.
+          if accountBalance + walletBalance("money") + 0.0001 < amount then return false end
+        end
+      elseif not info.canBeNegative and (info.amount or 0) > 0 and walletBalance(currency) < info.amount then
+        return false
+      end
+    end
+    return true
+  end
+
   for currency, info in pairs(price) do
-    if not info.canBeNegative and info.amount > 0 and overhaul_career_economy_playerAttributes.getAttributeValue(currency) < info.amount then
+    if not info.canBeNegative and info.amount > 0 and walletBalance(currency) < info.amount then
       return false
     end
   end
   return true
 end
 
-local function moneyAmount(price)
-  local info = price and price.money
-  return (info and tonumber(info.amount)) or 0
-end
-
-local function pay(price, reason, accountId, onRecorded)
-  servicePolicies.refresh()
-  if sponsor.tryCover(price, reason, accountId) then return true end
-
-  -- Auto-pay from a checking account when the caller did not pick an account.
-  if not accountId and overhaul_career_economy_bank and overhaul_career_economy_bank.resolvePayAccount then
-    local resolved = overhaul_career_economy_bank.resolvePayAccount(reason, moneyAmount(price))
-    if resolved then accountId = resolved end
-  end
-
-  if not canPay(price, accountId) then return false end
-
-  if accountId and overhaul_career_economy_bank then
-    reason = reason or {}
-    return overhaul_career_economy_bank.payFromAccount(price, accountId, reason.label, reason.description,
-      reason)
-  end
-
+local function payWallet(price, reason, onRecorded)
   local change = {}
   for currency, info in pairs(price) do
     change[currency] = -info.amount
   end
   overhaul_career_economy_playerAttributes.addAttributes(change, reason, nil, onRecorded)
   return true
+end
+
+local function pay(price, reason, accountId, onRecorded)
+  servicePolicies.refresh()
+  if sponsor.tryCover(price, reason, accountId) then return true end
+
+  local explicitAccount = accountId ~= nil and accountId ~= ""
+  local bank = overhaul_career_economy_bank
+
+  if not canPay(price, explicitAccount and accountId or nil, reason) then
+    return false
+  end
+
+  reason = reason or {}
+  local amount = moneyAmount(price)
+
+  if not explicitAccount then
+    accountId = resolveAutoPayAccount(reason)
+  end
+
+  if accountId and bank and amount > 0 then
+    local accountBalance = tonumber(bank.getAccountBalance(accountId)) or 0
+    if accountBalance + 0.0001 >= amount then
+      return bank.payFromAccount(price, accountId, reason.label, reason.description, reason) == true
+    end
+
+    -- Split (auto-pay only): checking first, wallet covers the rest.
+    if not explicitAccount and accountBalance > 0.009 then
+      local fromAccount = math.min(accountBalance, amount)
+      local fromWallet = math.floor((amount - fromAccount) * 100 + 0.5) / 100
+      if walletBalance("money") + 0.0001 < fromWallet then return false end
+      if not bank.payFromAccount({ money = { amount = fromAccount } }, accountId, reason.label, reason.description, reason) then
+        return false
+      end
+      if fromWallet > 0.009 then
+        return payWallet({ money = { amount = fromWallet } }, reason, onRecorded)
+      end
+      if onRecorded then onRecorded({ attributeChange = { money = -fromAccount } }) end
+      return true
+    end
+  end
+
+  return payWallet(price, reason, onRecorded)
 end
 
 local function reward(price, reason, fullReward, accountId)
@@ -242,10 +295,23 @@ local function payout(spec)
   return false, problem or "payout destination refused"
 end
 
+--- Wallet, or auto-pay checking balance when higher — for UI affordability (debit-card style).
+local function getSpendableMoney(reason)
+  local bank = overhaul_career_economy_bank
+  if bank and bank.getSpendableMoney then
+    return bank.getSpendableMoney(reason)
+  end
+  if overhaul_career_economy_playerAttributes and overhaul_career_economy_playerAttributes.getAttributeValue then
+    return tonumber(overhaul_career_economy_playerAttributes.getAttributeValue("money")) or 0
+  end
+  return 0
+end
+
 M.canPay = canPay
 M.pay = pay
 M.reward = reward
 M.payout = payout
+M.getSpendableMoney = getSpendableMoney
 M.registerWageHolder = wageHolders.register
 M.onExtensionLoaded = servicePolicies.refresh
 M.onExtensionUnloaded = servicePolicies.dispose

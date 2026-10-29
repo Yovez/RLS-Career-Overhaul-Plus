@@ -264,6 +264,53 @@ function M.new(inputs)
     data.currentSellerLocation = seller and seller.location
   end
 
+  local function vehicleSpendReason()
+    return {
+      category = "purchase",
+      tags = { "vehicleBought", "buying" },
+      label = "Vehicle purchase",
+    }
+  end
+
+  local function walletMoney()
+    return tonumber(overhaul_career_economy_playerAttributes.getAttributeValue("money")) or 0
+  end
+
+  local function personalSpendableForVehicles()
+    local reason = vehicleSpendReason()
+    local bank = overhaul_career_economy_bank
+    local payment = overhaul_career_economy_payment
+    if payment and payment.getSpendableMoney then
+      return tonumber(payment.getSpendableMoney(reason)) or walletMoney()
+    end
+    if bank and bank.getSpendableMoney then
+      return tonumber(bank.getSpendableMoney(reason)) or walletMoney()
+    end
+    local wallet = walletMoney()
+    if bank and bank.getAutoPayBalance then
+      return math.max(wallet, tonumber(bank.getAutoPayBalance(reason)) or 0)
+    end
+    return wallet
+  end
+
+  --- Patch shopping money so every UI path (including older clients) treats vehicles auto-pay checking as spendable.
+  --- Real wallet is preserved on playerPersonalMoneyForTaxi for taxi fares.
+  local function applySpendableMoneyToShoppingData(data)
+    local wallet = walletMoney()
+    local spendable = personalSpendableForVehicles()
+    data.walletMoney = wallet
+    data.spendableMoney = spendable
+    data.playerPersonalMoneyForTaxi = data.playerPersonalMoneyForTaxi or wallet
+    if not data.playerAttributes then return end
+    data.playerAttributes = deepcopy(data.playerAttributes)
+    if type(data.playerAttributes.money) == "table" then
+      data.playerAttributes.money = deepcopy(data.playerAttributes.money)
+      data.playerAttributes.money.value = spendable
+    else
+      data.playerAttributes.money = spendable
+    end
+  end
+
   local function getShoppingData()
     local data = {}
     local unsoldVehicles, soldVehicles = dependencies.convertKeysToStrings(state.vehiclesInShop)
@@ -281,6 +328,8 @@ function M.new(inputs)
     data.marketplaceAvailable = state.marketplaceAvailable
     data.playerAttributes = overhaul_career_economy_playerAttributes.getAllAttributes()
     if state.rtBizId then addRacingTeamContext(data) else addPlayerInventoryContext(data) end
+    -- After racing-team context may clear personal money; apply spendable for normal shops only.
+    if not state.rtBizId then applySpendableMoneyToShoppingData(data) end
     data.cheatsMode = overhaul_career_economy_cheats.isCheatsMode() or false
     data.dealershipPurchaseReputationGain = shoppingConfig.dealershipPurchaseReputationGain
     data.tutorialPurchase = (not overhaul_career_career.hasBoughtStarterVehicle()) or nil
@@ -649,7 +698,8 @@ function M.new(inputs)
   end
 
   local function buildPurchaseData(purchaseData, vehicleInfo, businessId)
-    local playerMoney = overhaul_career_economy_playerAttributes.getAttributeValue("money")
+    -- Purchase UI "spendable" uses playerMoney; include vehicles auto-pay checking when higher.
+    local playerMoney = personalSpendableForVehicles()
     local racingTeamBusinessMoney = nil
     -- Stamp trailer listings so the purchase UI skips the car-slot gate even when garage is full.
     local vehicleMap = require("overhaul/career/garage/inventory/vehicleMap")

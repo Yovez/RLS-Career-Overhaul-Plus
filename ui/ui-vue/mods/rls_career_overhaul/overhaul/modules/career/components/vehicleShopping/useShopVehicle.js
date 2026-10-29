@@ -88,6 +88,9 @@ function useShopVehicle(props) {
       return vehiclePrice.value > (Number.isFinite(team) ? team : 0)
     }
     if (data().cheatsMode) return false
+    // Prefer spendableMoney (wallet or vehicles auto-pay checking, whichever is higher).
+    const spendable = Number(data().spendableMoney)
+    if (Number.isFinite(spendable)) return vehiclePrice.value > spendable
     const wallet = Number(data().playerAttributes?.money?.value ?? data().playerAttributes?.money ?? 0)
     return vehiclePrice.value > wallet
   })

@@ -1,6 +1,6 @@
 # Fork notes
 
-This workspace is **RLS Career Overhaul Plus**, an independent fork of RLS Career Overhaul. We expand systems and ship Plus-only changes for how we want to play. We periodically merge from upstream to stay near public RLS releases. This is **not** a contribution fork for landing work upstream.
+This workspace is **Plus** (RLS Career Overhaul Plus), an independent Life Sim product built from Upstream RLS. We expand and redesign Claimed Domains for how we want to play. Sync policy is **Cherry-pick-track** (see [ADR-0001](adr/0001-cherry-pick-track.md) and [GLOSSARY.md](../GLOSSARY.md)). This is **not** a contribution fork for landing work upstream.
 
 ## Remotes
 
@@ -20,20 +20,35 @@ git push -u origin main
 
 GitHub auth: `gh auth login`, or HTTPS with a PAT / credential manager. Do **not** push Plus commits to `upstream`.
 
-## Syncing with upstream
+## Syncing with Upstream RLS
+
+Default: **do not** `git merge upstream/main`.
 
 ```bash
 git fetch upstream
-git merge upstream/main
-# resolve conflicts, test in-game, then push origin
+# Inspect: upstream commits / release notes / diff for paths you care about
+git log HEAD..upstream/main --oneline
+git diff HEAD...upstream/main -- path/of/interest
+# Port only what Must-port or Fits Life Sim (often as a cherry-pick or manual patch)
+git cherry-pick <upstream-commit>
+# test in-game, then push origin
 ```
 
-Prefer **merge** over rebase if you already published commits to `origin`, so shared history stays stable. Rebase is fine on private-only branches.
+Rules of thumb:
 
-Expect conflicts in:
+- **Must-port**: BeamNG version / API / UI shell breaks from Upstream RLS → port as Glue.
+- **Fits Life Sim**: gameplay ports only if they improve day-to-day money/housing/work/vehicles coherence, or are required Glue for a Claimed Domain.
+- **Plus Wins**: if Upstream RLS touches a Claimed Domain, skip by default unless Must-port or a deliberate adapted port.
+- **Best-effort Import**: Upstream RLS saves may load; Claimed Domains can extend or rewrite save data.
+
+Claim order (redesign, not endless patches): **Payment Domain** → **Housing Domain** → **Marketplace Domain**. Employment stays Glue until after Payment and Housing. Job Broker is already Claimed.
+
+Rare bulk merge is allowed only as an exception (e.g. overwhelming Must-port surface), on a throwaway branch — not the default workflow.
+
+Expect friction in:
 
 - `gameplay/overhaul/version.json` / credits / README when they cut releases
-- Any file you heavily customized in the same areas they touch (`economy`, `employment`, UI career modules)
+- Claimed or heavily customized paths (`economy`, landlord/rentals, broker, phone career UI)
 
 ## Dev install (BeamNG)
 
@@ -62,27 +77,27 @@ Do not ship from a dirty mix of two Overhaul versions in the same profile.
 
 | Branch | Use |
 |--------|-----|
-| `main` | Stable playable fork tip; merge upstream here periodically |
-| `upstream-sync` | Temporary branch for messy merges |
-| `fix/<topic>` | Individual annoyance fixes |
+| `main` | Stable playable Plus tip |
+| `upstream-port/<topic>` | Inspect/port a specific Upstream RLS change |
+| `fix/<topic>` | Individual Plus fixes or Claimed Domain work |
 
-Keep forks focused per change so upstream merges stay reviewable.
+Keep ports focused per change so review stays small.
 
 ## Docs in this folder
 
-`docs/` is **fork-local**. Upstream does not have it. When merging upstream:
+`docs/` is **Plus-local**. Upstream does not have it. When porting Upstream RLS:
 
 - Keep `docs/` (ours)
 - Do not delete upstream `README` / licensing / `.github` without reason
-- If upstream later adds a `docs/`, merge carefully
+- If upstream later adds a `docs/`, port carefully
 
 ## Changing systems safely
 
-1. Find the system in [SYSTEMS_CATALOG.md](SYSTEMS_CATALOG.md).
-2. Prefer data tweaks in `gameplay/overhaul/` when the knob already exists.
+1. Find the system in [SYSTEMS_CATALOG.md](SYSTEMS_CATALOG.md). Prefer glossary terms from [GLOSSARY.md](../GLOSSARY.md).
+2. Prefer data tweaks in `gameplay/overhaul/` when the knob already exists — unless the area is a Claimed Domain you are redesigning.
 3. Keep AGPL / bCDDL notices; update `licenses/RLS-AGPL-SCOPE.md` only when adding new original RLS-scoped files (upstream process; mirror if you redistribute).
-4. Test: new career + migrated save if you touch economy or save paths.
-5. Log intentional divergences here or in a short `docs/CHANGELOG_FORK.md` when you start shipping meaningful differences (optional; create when needed).
+4. Test: new career + Best-effort Import of an older save if you touch economy or save paths.
+5. Log intentional divergences in `docs/CHANGELOG_FORK.md`.
 
 ## Known upstream workflow quirks
 

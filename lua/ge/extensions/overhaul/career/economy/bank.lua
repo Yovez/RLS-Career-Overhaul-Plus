@@ -1145,6 +1145,8 @@ function M.setBalanceRules(accountId, rules)
 end
 
 M.resolvePayAccount = bankAutomation.resolvePayAccount
+M.getAutoPayBalance = bankAutomation.getAutoPayBalance
+M.getSpendableMoney = bankAutomation.getSpendableMoney
 M.maybeAutoDeposit = bankAutomation.maybeAutoDeposit
 M.evaluateBalanceRules = bankAutomation.evaluateBalanceRules
 M.evaluateAutoInvest = bankAutomation.evaluateAutoInvest

@@ -2,7 +2,7 @@
 
 **RLS Career Overhaul Plus** is an independent, free, open-source fork of [RLS Career Overhaul](https://github.com/RLS-Modding/rls_career_overhaul). You still get the full Overhaul career: jobs, deliveries, businesses, racing, phone, RLS West Coast, and the rest. On top of that, Plus adds its own QoL, routing, and system expansions.
 
-This project is **not** a contribution fork for upstream RLS. We maintain Plus ourselves and change systems the way we want to play. We still pull from upstream now and then so Plus can stay close to public RLS releases, then keep building from there.
+This project is **not** a contribution fork for upstream RLS. We maintain Plus ourselves toward a coherent career **Life Sim**, and redesign Claimed Domains instead of tracking Upstream RLS design. We cherry-pick from public Upstream RLS when a change Must-port (e.g. BeamNG breaks) or Fits Life Sim — see [ADR-0001](docs/adr/0001-cherry-pick-track.md).
 
 **Base:** RLS Career Overhaul **v2.8.0** · BeamNG.drive **0.40.x**
 
@@ -27,9 +27,9 @@ If you redistribute Plus, keep attribution, license texts, and source obligation
 
 ## What Plus is for
 
-- A playable career on current public RLS, with Plus improvements on top.
-- Expanding systems (routing, logistics QoL, phone behaviour, and more over time) without waiting on upstream design.
-- Occasional merges or cherry-picks from [upstream](https://github.com/RLS-Modding/rls_career_overhaul) so we pick up public-release fixes and content, then re-apply Plus changes as needed.
+- A playable Life Sim career: money, housing, work, and vehicles that feel coherent day-to-day.
+- Expanding and owning systems (Payment, Housing, Marketplace, Job Broker, and more) without waiting on Upstream RLS design.
+- Selective cherry-picks from [Upstream RLS](https://github.com/RLS-Modding/rls_career_overhaul) for Must-port Glue and gameplay that Fits Life Sim — not bulk merge-track.
 
 What it is **not**:
 
@@ -73,15 +73,16 @@ Improvements aimed at **this** fork are welcome (issues and PRs against this rep
 
 Security reports for this fork: use GitHub private vulnerability reporting on this repository when available, or contact the Plus maintainer. Upstream’s [SECURITY.md](SECURITY.md) still applies to stock Overhaul.
 
-## Syncing with upstream
+## Syncing with Upstream RLS
 
 ```bash
 git fetch upstream
-git merge upstream/main
-# resolve conflicts, re-test Plus behaviour, then push origin
+git log HEAD..upstream/main --oneline
+# cherry-pick or manually port only Must-port / Fits Life Sim changes
+git cherry-pick <upstream-commit>
 ```
 
-Details: [docs/FORK_NOTES.md](docs/FORK_NOTES.md).
+Details: [docs/FORK_NOTES.md](docs/FORK_NOTES.md), [GLOSSARY.md](GLOSSARY.md).
 
 ## Licensing (summary)
 
