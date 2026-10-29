@@ -649,7 +649,10 @@ end
 local function sendShoppingCartToUI(shoppingCartUI)
   local shoppingData = {shoppingCart = shoppingCartUI}
   -- Affordability gate uses Spendable for the shops bucket (Wallet + shops auto-pay checking).
-  shoppingData.playerMoney = overhaul_career_economy_payment.getSpendableMoney(tuningShopSpendReason())
+  -- Prefer spendableMoney; dual-write legacy playerMoney until Vue carts read spendableMoney only.
+  local tuningSpendable = overhaul_career_economy_payment.getSpendableMoney(tuningShopSpendReason())
+  shoppingData.spendableMoney = tuningSpendable
+  shoppingData.playerMoney = tuningSpendable -- deprecated alias of spendableMoney
   guihooks.trigger('sendTuningShoppingData', shoppingData)
 end
 

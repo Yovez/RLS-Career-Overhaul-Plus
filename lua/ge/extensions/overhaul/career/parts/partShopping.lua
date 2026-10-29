@@ -305,7 +305,10 @@ sendShoppingDataToUI = function()
   shoppingData.filteredSlots = {}
 
   -- Affordability gate uses Spendable for the shops bucket (Wallet + shops auto-pay checking).
-  shoppingData.playerMoney = overhaul_career_economy_payment.getSpendableMoney(partsShopSpendReason())
+  -- Prefer spendableMoney; dual-write legacy playerMoney until Vue carts read spendableMoney only.
+  local partsSpendable = overhaul_career_economy_payment.getSpendableMoney(partsShopSpendReason())
+  shoppingData.spendableMoney = partsSpendable
+  shoppingData.playerMoney = partsSpendable -- deprecated alias of spendableMoney
   shoppingData.saveForLater = drafts.getSaveForLater()
   shoppingData.restoreInProgress = drafts.isRestoreInProgress()
   if drafts.isRestoreInProgress() then

@@ -45,16 +45,16 @@ The next Claimed Domain: Plus-owned model of player money movement (what can pay
 _Avoid_: bank (the Upstream RLS module), automation alone, spendable (as the whole domain name)
 
 **Wallet**:
-Cash-on-hand held as the player money attribute; not a bank account.
-_Avoid_: balance (alone), cash (ambiguous with checking), spendable
+Cash-on-hand held as the player money attribute; not a bank account. In payloads we control, prefer `walletMoney`.
+_Avoid_: balance (alone), cash (ambiguous with checking), spendable, playerMoney (as a Wallet field name)
 
 **Account**:
 A bank-held balance (checking or savings) distinct from the Wallet.
 _Avoid_: wallet, balance (alone)
 
 **Spendable**:
-A derived affordability amount for a purchase reason (e.g. Wallet + auto-pay checking); never a stored third balance.
-_Avoid_: balance, funds, total money
+A derived affordability amount for a purchase reason (e.g. Wallet + auto-pay checking); never a stored third balance. In payloads we control, prefer `spendableMoney` — do not label Spendable as `playerMoney` when we own the payload (legacy `playerMoney` may remain only as a deprecated UI alias).
+_Avoid_: balance, funds, total money, playerMoney (when we control the payload)
 
 **Housing Domain**:
 The Claimed Domain after Payment Domain: owned property, mortgage, and landlord/rentals as one Life Sim housing story.

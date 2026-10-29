@@ -279,19 +279,11 @@ function M.new(inputs)
   local function personalSpendableForVehicles()
     local reason = vehicleSpendReason()
     local payment = overhaul_career_economy_payment
+    -- Payment facade only; never fall through to bank.getSpendableMoney.
     if payment and payment.getSpendableMoney then
       return tonumber(payment.getSpendableMoney(reason)) or walletMoney()
     end
-    local bank = overhaul_career_economy_bank
-    if bank and bank.getSpendableMoney then
-      return tonumber(bank.getSpendableMoney(reason)) or walletMoney()
-    end
-    -- Fallback must match facade: Wallet + claimed checking (sum), never max().
-    local wallet = walletMoney()
-    if bank and bank.getAutoPayBalance then
-      return wallet + (tonumber(bank.getAutoPayBalance(reason)) or 0)
-    end
-    return wallet
+    return walletMoney()
   end
 
   --- Expose Wallet and vehicles Spendable separately. Do not overwrite playerAttributes.money
@@ -693,7 +685,8 @@ function M.new(inputs)
   end
 
   local function buildPurchaseData(purchaseData, vehicleInfo, businessId)
-    -- playerMoney / spendableMoney = vehicles Spendable for buy gates; walletMoney = cash-on-hand.
+    -- spendableMoney = vehicles Spendable for buy gates; walletMoney = cash-on-hand (Wallet).
+    -- playerMoney is a deprecated alias of spendableMoney for older Vue intake; prefer spendableMoney.
     local spendable = personalSpendableForVehicles()
     local wallet = walletMoney()
     local racingTeamBusinessMoney = nil
@@ -712,8 +705,9 @@ function M.new(inputs)
     local damageFee = testDriveDamageFee()
     return {
       vehicleInfo = purchaseData.vehicleInfo,
-      playerMoney = spendable,
       spendableMoney = spendable,
+      -- Deprecated: legacy Vue still falls back to playerMoney when spendableMoney is absent.
+      playerMoney = spendable,
       walletMoney = wallet,
       racingTeamBusinessMoney = racingTeamBusinessMoney,
       racingTeamFleetPurchase = businessId ~= nil,
