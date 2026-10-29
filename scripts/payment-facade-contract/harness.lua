@@ -1,4 +1,4 @@
--- Offline Payment Domain facade contract (#2).
+-- Offline Payment Domain facade contract (#2 + #9 Wallet-truth).
 -- Loads real payment.lua against stubbed bank / wallet / sponsor deps.
 -- Run via: node scripts/payment-facade-contract/run.mjs
 
@@ -350,6 +350,81 @@ do
   expect(nearly(world.playerAttributes._wallet(), 75), "Reward lands in Wallet")
   expect(world.playerAttributes._persistedKeys().spendable == nil,
     "Reward does not persist Spendable")
+end
+
+---------------------------------------------------------------------------
+-- #9 Wallet-truth: deposit capacity / Account displays / Wallet ledger
+---------------------------------------------------------------------------
+
+local transferReason = { category = "transfer", label = "Bank deposit" }
+
+do
+  -- Deposit-facing cash must stay Wallet even when vehicles auto-pay checking is large.
+  local world = makeWorld({ wallet = 120, checking = 880, claimBucket = "vehicles" })
+  installWorld(world)
+  expect(type(payment.getWalletMoney) == "function",
+    "#9 facade exposes getWalletMoney for deposit/cash-on-hand")
+  local wallet = payment.getWalletMoney and payment.getWalletMoney() or nil
+  local spendable = payment.getSpendableMoney(vehicleReason)
+  expect(nearly(wallet, 120), "#9 deposit capacity / Wallet display uses Wallet only")
+  expect(nearly(spendable, 1000), "#9 Spendable still reflects vehicles auto-pay")
+  expect(nearly(wallet, spendable) == false,
+    "#9 auto-pay on must not inflate deposit/Wallet display via Spendable")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 880),
+    "#9 Account balance stays real ledger (not Spendable)")
+end
+
+do
+  -- Bank deposit reason is transfer: never debit auto-pay checking, even for "other".
+  local world = makeWorld({ wallet = 40, checking = 900, claimBucket = "other" })
+  installWorld(world)
+  local price = { money = { amount = 100 } }
+  expect(payment.canPay(price, nil, transferReason) == false,
+    "#9 deposit canPay is Wallet-only (checking cannot top up transfer)")
+  expect(nearly(payment.getSpendableMoney(vehicleReason), 40),
+    "#9 vehicles Spendable ignores other-bucket claim")
+  expect(payment.pay(price, transferReason) == false,
+    "#9 deposit pay rejects when Wallet alone is short")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 900),
+    "#9 rejected deposit leaves Account untouched")
+  expect(nearly(world.playerAttributes._wallet(), 40),
+    "#9 rejected deposit leaves Wallet untouched")
+end
+
+do
+  -- Successful deposit-shaped transfer: Wallet ledger truth, Account claim untouched.
+  local world = makeWorld({ wallet = 200, checking = 700, claimBucket = "vehicles" })
+  installWorld(world)
+  local recorded
+  local price = { money = { amount = 75 } }
+  expect(payment.canPay(price, nil, transferReason) == true,
+    "#9 deposit canPay true from Wallet alone")
+  expect(payment.pay(price, transferReason, nil, function(info)
+    recorded = info
+  end) == true, "#9 deposit pay debits Wallet")
+  expect(nearly(world.playerAttributes._wallet(), 125),
+    "#9 deposit pay reduces Wallet only")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 700),
+    "#9 deposit pay does not consume auto-pay checking")
+  expect(recorded and recorded.attributeChange and nearly(recorded.attributeChange.money, -75),
+    "#9 financial history / onRecorded stays Wallet ledger truth (not Spendable)")
+  expect(world.playerAttributes._persistedKeys().spendable == nil,
+    "#9 deposit path never persists Spendable")
+end
+
+do
+  -- Deriving Spendable must not rewrite stored Wallet or Account balances.
+  local world = makeWorld({ wallet = 55, checking = 445, claimBucket = "vehicles" })
+  installWorld(world)
+  local beforeWallet = world.playerAttributes._wallet()
+  local beforeChk = world.bank.getAccountBalance("chk1")
+  local _ = payment.getSpendableMoney(vehicleReason)
+  local walletNow = payment.getWalletMoney and payment.getWalletMoney() or beforeWallet
+  expect(nearly(walletNow, beforeWallet), "#9 getSpendableMoney does not mutate Wallet")
+  expect(nearly(world.bank.getAccountBalance("chk1"), beforeChk),
+    "#9 getSpendableMoney does not mutate Account")
+  expect(nearly(walletNow, beforeChk) == false or nearly(beforeWallet, beforeChk),
+    "#9 Wallet display stays distinct from Account when balances differ")
 end
 
 io.write(string.format("\n%d passed, %d failed\n", passed, failures))
