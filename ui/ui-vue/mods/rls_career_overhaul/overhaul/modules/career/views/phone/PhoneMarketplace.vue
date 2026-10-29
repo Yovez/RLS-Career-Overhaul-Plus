@@ -215,11 +215,20 @@ const { unreadCount } = usePhoneMarketplaceListings()
 const vehicleShoppingStore = useVehicleShoppingStore()
 const { events } = useBridge()
 
+/** Vehicles purchase reason — must match vehicleShopping/ui.lua vehicleSpendReason / payment pay. */
+const MARKETPLACE_BUY_REASON = {
+  category: 'purchase',
+  tags: ['vehicleBought', 'buying'],
+  label: 'Vehicle purchase',
+}
+
 const shopLoaded = ref(false)
 const searchQuery = ref('')
 const negotiateInProgress = ref(false)
 const filterOpen = ref(false)
 const sortOpen = ref(false)
+/** Live Spendable from payment facade for marketplace buy affordability. */
+const facadeSpendable = ref(null)
 
 /** Raw shop stock — not filteredVehicles, which applies the computer's shared search/filters. */
 const privateListings = computed(() => {
@@ -229,10 +238,29 @@ const privateListings = computed(() => {
   return list.filter(v => String(v.sellerId) === 'private' && !v.__sold && !v.soldViewCounter)
 })
 
+/**
+ * Buy-tab affordability gate: Spendable for the vehicles purchase reason when auto-pay applies;
+ * equals Wallet when auto-pay is off. Prefer facade → shopping spendableMoney; never walletMoney
+ * (cash-on-hand / deposit truth stays on walletMoney / playerAttributes.money).
+ */
 const playerBalance = computed(() => {
+  if (Number.isFinite(facadeSpendable.value)) return facadeSpendable.value
   const d = vehicleShoppingStore.vehicleShoppingData
+  const spendable = Number(d?.spendableMoney)
+  if (Number.isFinite(spendable)) return spendable
+  // Legacy payloads may still mirror Spendable into playerAttributes.money; do not use walletMoney.
   return Number(d?.playerAttributes?.money?.value ?? d?.playerAttributes?.money ?? 0) || 0
 })
+
+async function refreshBuySpendable() {
+  try {
+    const n = Number(await lua.overhaul_career_economy_payment.getSpendableMoney(MARKETPLACE_BUY_REASON))
+    facadeSpendable.value = Number.isFinite(n) ? n : null
+  } catch (_) {
+    facadeSpendable.value = null
+    reportUiFailure(_, 'optional action (PhoneMarketplace spendable)')
+  }
+}
 
 const {
   filterForm,
@@ -335,6 +363,8 @@ const onShopDelta = (delta) => {
   if (typeof vehicleShoppingStore.applyShopDelta === 'function') {
     vehicleShoppingStore.applyShopDelta(delta)
   }
+  // Listing deltas do not refresh money; keep buy-tab Spendable aligned with the facade.
+  refreshBuySpendable()
 }
 
 onMounted(async () => {
@@ -343,6 +373,7 @@ onMounted(async () => {
     await lua.overhaul_career_market_vehicleShopping.setShoppingUiOpen(true)
   } catch (_) { reportUiFailure(_, "optional action (PhoneMarketplace)") }
   await vehicleShoppingStore.requestVehicleShoppingData()
+  await refreshBuySpendable()
   shopLoaded.value = true
 })
 
