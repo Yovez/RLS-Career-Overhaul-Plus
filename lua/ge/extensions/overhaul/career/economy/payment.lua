@@ -129,7 +129,10 @@ local function payWallet(price, reason, onRecorded)
   for currency, info in pairs(price) do
     change[currency] = -info.amount
   end
-  overhaul_career_economy_playerAttributes.addAttributes(change, reason, nil, onRecorded)
+  -- Explicit false from addAttributes means the Wallet leg refused; anything else keeps today's success contract.
+  if overhaul_career_economy_playerAttributes.addAttributes(change, reason, nil, onRecorded) == false then
+    return false
+  end
   return true
 end
 
@@ -158,6 +161,8 @@ local function pay(price, reason, accountId, onRecorded)
     end
 
     -- Split (auto-pay only): checking first, wallet covers the rest.
+    -- If the Wallet leg refuses after checking already moved, refund checking so a
+    -- rejected pay never leaves a partial Account debit (Payment Domain contract).
     if not explicitAccount and accountBalance > 0.009 then
       local fromAccount = math.min(accountBalance, amount)
       local fromWallet = math.floor((amount - fromAccount) * 100 + 0.5) / 100
@@ -166,7 +171,13 @@ local function pay(price, reason, accountId, onRecorded)
         return false
       end
       if fromWallet > 0.009 then
-        return payWallet({ money = { amount = fromWallet } }, reason, onRecorded)
+        if payWallet({ money = { amount = fromWallet } }, reason, onRecorded) then
+          return true
+        end
+        if bank.rewardToAccount then
+          bank.rewardToAccount({ money = { amount = fromAccount } }, accountId, reason.label, reason.description, reason)
+        end
+        return false
       end
       if onRecorded then onRecorded({ attributeChange = { money = -fromAccount } }) end
       return true
@@ -295,7 +306,7 @@ local function payout(spec)
   return false, problem or "payout destination refused"
 end
 
---- Wallet, or auto-pay checking balance when higher — for UI affordability (debit-card style).
+--- Derived Spendable for a purchase reason: Wallet + claimed auto-pay checking (never stored).
 local function getSpendableMoney(reason)
   local bank = overhaul_career_economy_bank
   if bank and bank.getSpendableMoney then
