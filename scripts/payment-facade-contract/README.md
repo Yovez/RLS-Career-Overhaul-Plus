@@ -2,7 +2,7 @@
 
 Offline checks for the Payment Domain facade seam: `canPay`, `getSpendableMoney`, `pay`, `reward`.
 
-Covers auto-pay on/off, checking-then-Wallet split, wrong spend bucket, Spendable derived-only, and rejected split pay with no partial checking debit.
+Covers auto-pay on/off, checking-then-Wallet split, wrong spend bucket, Spendable derived-only, rejected split pay with no partial checking debit, and #6 maintenance/garage/travel reasons (`repair`, `property`, `service`) including cash-only Wallet vs Spendable.
 
 ## Run (no BeamNG)
 

@@ -103,7 +103,8 @@ local function quickTravelToPos(pos, useWalkingMode, reasonString, rot, lookAtPo
   if not pos or not getPlayerVehicle(0) or not useWalkingMode then return false end
   local price = getPriceForQuickTravel(pos)
   local cost = {money = {amount = price, canBeNegative = false}}
-  if not overhaul_career_economy_payment.canPay(cost) or not overhaul_career_economy_payment.pay(cost, require("overhaul/lib/finance/metadata").tag({tags={"quickTravel","buying"}, label=(reasonString or "ui.career.attributeLog.quickTravelPaid")}, "service", {vehicleRelated = false})) then
+  local reason = require("overhaul/lib/finance/metadata").tag({tags={"quickTravel","buying"}, label=(reasonString or "ui.career.attributeLog.quickTravelPaid")}, "service", {vehicleRelated = false})
+  if not overhaul_career_economy_payment.canPay(cost, nil, reason) or not overhaul_career_economy_payment.pay(cost, reason) then
     ui_message("Insufficient funds for quick travel.", 5, "warning")
     return false
   end

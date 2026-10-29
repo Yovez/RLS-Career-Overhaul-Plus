@@ -7,7 +7,19 @@ function partFactory.new(inputs)
 
   local parts = inputs.parts
 
-  local function getPlayerMoney()
+  local function maintenanceSpendReason(inventoryId)
+    return require("overhaul/lib/finance/metadata").tag({
+      tags = {"maintenance", "overhaul_vehicles_maintenanceBridge", "buying"},
+    }, "repair", {vehicleId = inventoryId})
+  end
+
+  -- Cart / affordability display: Spendable for the repair reason (not Wallet alone).
+  local function getPlayerMoney(inventoryId)
+    local reason = maintenanceSpendReason(inventoryId)
+    local payment = overhaul_career_economy_payment
+    if payment and payment.getSpendableMoney then
+      return tonumber(payment.getSpendableMoney(reason)) or 0
+    end
     return overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
   end
 
@@ -22,7 +34,7 @@ function partFactory.new(inputs)
     return "Maintenance"
   end
 
-  local function buildUiRow(vehicleData, maintenanceState, uiState, categoryName, itemDefinition)
+  local function buildUiRow(vehicleData, maintenanceState, uiState, categoryName, itemDefinition, inventoryId)
     local itemValue = maintenanceState.categories[categoryName].maintenance[itemDefinition.name] or 0
     local roundedValue = inputs.roundPercent(itemValue)
     local revealedState = uiState.revealed[categoryName][itemDefinition.name]
@@ -31,7 +43,11 @@ function partFactory.new(inputs)
     local canAffordService = true
 
     if servicePrice > 0 then
-      canAffordService = overhaul_career_economy_payment.canPay({money = {amount = servicePrice, canBeNegative = false}})
+      canAffordService = overhaul_career_economy_payment.canPay(
+        {money = {amount = servicePrice, canBeNegative = false}},
+        nil,
+        maintenanceSpendReason(inventoryId)
+      )
     end
 
     return {
@@ -52,11 +68,11 @@ function partFactory.new(inputs)
     }
   end
 
-  local function buildCategoryUiData(vehicleData, maintenanceState, uiState, categoryName)
+  local function buildCategoryUiData(vehicleData, maintenanceState, uiState, categoryName, inventoryId)
     local categoryState = maintenanceState.categories[categoryName]
     local rows = {}
     for _, itemDefinition in ipairs(inputs.config.categoryDefinitions[categoryName].items) do
-      table.insert(rows, buildUiRow(vehicleData, maintenanceState, uiState, categoryName, itemDefinition))
+      table.insert(rows, buildUiRow(vehicleData, maintenanceState, uiState, categoryName, itemDefinition, inventoryId))
     end
 
     return {
@@ -70,11 +86,11 @@ function partFactory.new(inputs)
   end
 
   -- Lists the categories whose hardware is fitted, in display order.
-  local function buildInstalledCategories(vehicleData, maintenanceState, uiState)
+  local function buildInstalledCategories(vehicleData, maintenanceState, uiState, inventoryId)
     local categories = {}
     for _, categoryName in ipairs(inputs.config.categoryOrder) do
       if parts.quotes.categoryHardwareIsInstalled(vehicleData, categoryName) then
-        table.insert(categories, buildCategoryUiData(vehicleData, maintenanceState, uiState, categoryName))
+        table.insert(categories, buildCategoryUiData(vehicleData, maintenanceState, uiState, categoryName, inventoryId))
       end
     end
     return categories
@@ -101,7 +117,7 @@ function partFactory.new(inputs)
 
     local vehicleUiData = overhaul_career_garage_inventory.getVehicleUiData(inventoryId) or inputs.deepCopy(vehicleData)
 
-    local categories = buildInstalledCategories(vehicleData, maintenanceState, uiState)
+    local categories = buildInstalledCategories(vehicleData, maintenanceState, uiState, inventoryId)
     local tireShop = nil
     if computerState.sessionMode ~= "dyno" then
       tireShop = overhaul_career_maintenance_tireSystem.buildUiData(inventoryId) or {available = false}
@@ -114,7 +130,7 @@ function partFactory.new(inputs)
       vehicle = vehicleUiData,
       maintenanceProfile = inputs.deepCopy(maintenanceState.profile),
       categories = categories,
-      playerMoney = getPlayerMoney(),
+      playerMoney = getPlayerMoney(inventoryId),
       sessionMode = computerState.sessionMode,
       tireShop = tireShop,
     }
@@ -131,7 +147,8 @@ function partFactory.new(inputs)
     local vehicleData, maintenanceState, uiState = parts.services.prepareBusinessVehicleState(businessId, vehicleId)
     if not vehicleData then return {enabled = false, errorMessage = "Fleet vehicle not found."} end
     -- Categories first: building them can refresh cached part ids, which the vehicle copy must include.
-    local categories = buildInstalledCategories(vehicleData, maintenanceState, uiState)
+    -- Fleet UI still exposes personal Spendable for repair gates that share the personal pay path.
+    local categories = buildInstalledCategories(vehicleData, maintenanceState, uiState, vehicleId)
     return {
       enabled = true,
       facilityName = buildFacilityName(),
@@ -139,7 +156,7 @@ function partFactory.new(inputs)
       vehicle = inputs.deepCopy(vehicleData),
       maintenanceProfile = inputs.deepCopy(maintenanceState.profile),
       categories = categories,
-      playerMoney = getPlayerMoney(),
+      playerMoney = getPlayerMoney(vehicleId),
       tireShop = overhaul_career_maintenance_tireSystem.buildBusinessUiData(businessId, vehicleId),
     }
   end

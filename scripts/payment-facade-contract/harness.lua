@@ -234,6 +234,10 @@ local payment = loadPayment()
 
 local vehicleReason = { category = "purchase", tags = { "vehicleBought", "buying" } }
 local shopsReason = { category = "purchase", tags = { "part" } }
+-- #6 maintenance / garage / travel reasons (must match production pay tags)
+local repairReason = { category = "repair", tags = { "maintenance", "buying" } }
+local propertyReason = { category = "property", finance = { vehicleRelated = false } }
+local serviceReason = { category = "service", tags = { "quickTravel", "buying" } }
 
 local function installWorld(world)
   _G.overhaul_career_economy_bank = world.bank
@@ -350,6 +354,87 @@ do
   expect(nearly(world.playerAttributes._wallet(), 75), "Reward lands in Wallet")
   expect(world.playerAttributes._persistedKeys().spendable == nil,
     "Reward does not persist Spendable")
+end
+
+---------------------------------------------------------------------------
+-- #6 Maintenance / garage / travel bucket alignment at the payment facade
+---------------------------------------------------------------------------
+
+do
+  local world = makeWorld({ wallet = 30, checking = 400, claimBucket = "repairs" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(repairReason), 430),
+    "#6 repairs auto-pay on: Spendable = Wallet + repairs checking")
+  expect(payment.canPay({ money = { amount = 350 } }, nil, repairReason) == true,
+    "#6 repairs auto-pay on: canPay with checking cover")
+  expect(payment.canPay({ money = { amount = 350 } }, nil, propertyReason) == false,
+    "#6 repairs claim does not cover property reason")
+  expect(nearly(payment.getSpendableMoney(propertyReason), 30),
+    "#6 property Spendable ignores repairs claim (Wallet only)")
+end
+
+do
+  local world = makeWorld({ wallet = 30, checking = 400, claimBucket = "repairs" })
+  installWorld(world)
+  expect(payment.pay({ money = { amount = 200 } }, repairReason) == true,
+    "#6 repairs auto-pay on: pay succeeds")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 200), "#6 repairs pay debits checking")
+  expect(nearly(world.playerAttributes._wallet(), 30), "#6 repairs pay leaves Wallet when checking covers")
+end
+
+do
+  local world = makeWorld({ wallet = 50, checking = 500, claimBucket = nil })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(repairReason), 50),
+    "#6 repairs auto-pay off: Spendable equals Wallet")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, repairReason) == false,
+    "#6 repairs auto-pay off: cannotPay beyond Wallet")
+  expect(payment.canPay({ money = { amount = 40 } }, nil, repairReason) == true,
+    "#6 repairs auto-pay off: canPay from Wallet")
+end
+
+do
+  local world = makeWorld({ wallet = 25, checking = 900, claimBucket = "property" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(propertyReason), 925),
+    "#6 property auto-pay on: garage Spendable includes property checking")
+  expect(payment.canPay({ money = { amount = 800 } }, nil, propertyReason) == true,
+    "#6 property auto-pay on: garage canPay")
+  expect(nearly(payment.getSpendableMoney(shopsReason), 25),
+    "#6 garage must not invent shops Spendable from property claim")
+  expect(payment.canPay({ money = { amount = 800 } }, nil, shopsReason) == false,
+    "#6 property claim does not cover shops/purchase-without-property reason")
+end
+
+do
+  local world = makeWorld({ wallet = 25, checking = 900, claimBucket = nil })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(propertyReason), 25),
+    "#6 property auto-pay off: Spendable equals Wallet")
+  expect(payment.canPay({ money = { amount = 100 } }, nil, propertyReason) == false,
+    "#6 property auto-pay off: cannotPay beyond Wallet")
+end
+
+do
+  local world = makeWorld({ wallet = 10, checking = 200, claimBucket = "services" })
+  installWorld(world)
+  expect(nearly(payment.getSpendableMoney(serviceReason), 210),
+    "#6 services auto-pay on: travel Spendable includes services checking")
+  expect(payment.canPay({ money = { amount = 150 } }, nil, serviceReason) == true,
+    "#6 services auto-pay on: travel canPay")
+  expect(payment.pay({ money = { amount = 150 } }, serviceReason) == true,
+    "#6 services auto-pay on: travel pay")
+  expect(nearly(world.bank.getAccountBalance("chk1"), 50), "#6 services pay debits checking")
+end
+
+do
+  -- Cash-only gate: no reason / Wallet attribute — must not invent Spendable from checking
+  local world = makeWorld({ wallet = 40, checking = 2000, claimBucket = "property" })
+  installWorld(world)
+  local walletOnly = world.playerAttributes.getAttributeValue("money")
+  expect(nearly(walletOnly, 40), "#6 cash-only Wallet read is Wallet, not Spendable")
+  expect(walletOnly + 0.001 < payment.getSpendableMoney(propertyReason),
+    "#6 cash-only Wallet is strictly less than property Spendable when claim is large")
 end
 
 io.write(string.format("\n%d passed, %d failed\n", passed, failures))
