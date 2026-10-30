@@ -95,7 +95,7 @@
         v-bng-scoped-nav="{ scopeId: 'career-tuning-cart' }"
         :active="isCartActive"
         :cart-data="cartData"
-        :player-money="tuningStore.shoppingData.playerMoney"
+        :player-money="tuningStore.shoppingData.spendableMoney ?? tuningStore.shoppingData.playerMoney"
         :confirm-button-text="$translate.instant('ui.career.shared.confirm')"
         v-bng-on-ui-nav:context="switchToTuning"
         @apply="applyShopping"

@@ -314,8 +314,9 @@ end
 
 local function tryPayFromPlayer(loan, needed)
   local price = { money = { amount = needed } }
-  if not overhaul_career_economy_payment.canPay(price) then return false end
-  local ok = overhaul_career_economy_payment.pay(price, { category = "loan", label = "Loan Payment", description = "Payment to " .. (loan.orgName or loan.orgId) })
+  local reason = { category = "loan", label = "Loan Payment", description = "Payment to " .. (loan.orgName or loan.orgId) }
+  if not overhaul_career_economy_payment.canPay(price, nil, reason) then return false end
+  local ok = overhaul_career_economy_payment.pay(price, reason)
   return ok
 end
 
@@ -581,8 +582,9 @@ local function attemptPrepayFromSource(loan, amount)
       return ok, "insufficient_funds"
     end
   end
-  if not overhaul_career_economy_payment.canPay(price) then return false, "insufficient_funds" end
-  local ok = overhaul_career_economy_payment.pay(price, { category = "loan", label = "Loan Prepayment", description = "Prepayment to " .. (loan.orgName or loan.orgId) })
+  local reason = { category = "loan", label = "Loan Prepayment", description = "Prepayment to " .. (loan.orgName or loan.orgId) }
+  if not overhaul_career_economy_payment.canPay(price, nil, reason) then return false, "insufficient_funds" end
+  local ok = overhaul_career_economy_payment.pay(price, reason)
   if ok then
     return ok, nil
   else

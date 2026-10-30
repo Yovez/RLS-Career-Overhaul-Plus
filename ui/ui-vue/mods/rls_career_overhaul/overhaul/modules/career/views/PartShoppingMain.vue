@@ -49,7 +49,7 @@
         :active="isCartActive"
         :partShoppingData="partShoppingStore.partShoppingData"
         :cart-data="cartData"
-        :player-money="partShoppingStore.partShoppingData.playerMoney"
+        :player-money="partShoppingStore.partShoppingData.spendableMoney ?? partShoppingStore.partShoppingData.playerMoney"
         :confirm-button-text="$translate.instant('ui.career.shared.confirm')"
         :show-save-for-later="true"
         :restore-in-progress="!!partShoppingStore.partShoppingData.restoreInProgress"

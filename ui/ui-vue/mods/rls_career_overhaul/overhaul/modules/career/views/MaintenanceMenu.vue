@@ -329,7 +329,13 @@ const requestData = async () => {
     let playerMoneyValue = parseMoney(result.playerMoney)
     if (playerMoneyValue == null) {
       try {
-        playerMoneyValue = parseMoney(await lua.overhaul_career_economy_playerAttributes.getAttributeValue("money"))
+        // Fallback: Spendable for repair (same reason as maintenance pay), not Wallet alone
+        playerMoneyValue = parseMoney(
+          await lua.overhaul_career_economy_payment.getSpendableMoney({
+            category: "repair",
+            tags: ["maintenance", "buying"],
+          })
+        )
       } catch (_) {
         playerMoneyValue = null
       }

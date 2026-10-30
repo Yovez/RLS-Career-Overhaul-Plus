@@ -192,8 +192,8 @@
               <span class="price"><BngUnit class="money" :money="vehiclePurchaseStore.finalPackagePrice" /></span>
             </div>
             <div class="balance-line">
-              <span class="label">{{ vehiclePurchaseStore.racingTeamVehicleShop ? "Team account" : "Your cash" }}</span>
-              <span class="price"><BngUnit class="money" :money="vehiclePurchaseStore.racingTeamVehicleShop ? vehiclePurchaseStore.racingTeamBusinessMoney : vehiclePurchaseStore.playerMoney" /></span>
+              <span class="label">{{ vehiclePurchaseStore.racingTeamVehicleShop ? "Team account" : "Available to spend" }}</span>
+              <span class="price"><BngUnit class="money" :money="vehiclePurchaseStore.racingTeamVehicleShop ? vehiclePurchaseStore.racingTeamBusinessMoney : vehiclePurchaseStore.spendableMoney" /></span>
             </div>
             <div v-if="vehiclePurchaseStore.testDriveDamageFee > 0" class="notice bad test-drive-damage-warning">
               <span class="label"><BngIcon type="danger" /> {{ $translate.instant("ui.career.vehiclePurchase.testDriveDamageWarning") }}</span>
@@ -295,7 +295,11 @@ const financePurchase = async () => {
   })
   try {
     if (await financingPopup.promise) {
-      vehiclePurchaseStore.playerMoney = await lua.overhaul_career_economy_playerAttributes.getAttributeValue('money')
+      vehiclePurchaseStore.playerMoney = await lua.overhaul_career_economy_payment.getSpendableMoney({
+        category: 'purchase',
+        tags: ['vehicleBought', 'buying'],
+        label: 'Vehicle purchase',
+      })
       refocusIfLost(() => document.querySelector('.purchase-screen .buy-button:not([disabled])') || document.querySelector('.purchase-screen button:not([disabled]):not([bng-no-nav="true"])'))
     }
   } finally { financingPopup = null }

@@ -172,6 +172,16 @@ local function setupTether()
   return tether ~= nil
 end
 
+-- Shops spend reason: maps to shops bucket (not vehicles), even with vehicleId ledger context.
+local function tuningShopSpendReason()
+  return {
+    category = "purchase",
+    finance = { vehicleId = inventoryId },
+    tags = { "tuning", "buying" },
+    label = "ui.career.tuning.tunedVehicle",
+  }
+end
+
 local function applyShopping()
   if not shoppingCart or not inventoryId then
     return {success = false, reason = "no_active_tuning"}
@@ -182,7 +192,9 @@ local function applyShopping()
   end
 
   local total = tonumber(shoppingCart.total) or 0
-  if total > 0 and not overhaul_career_economy_payment.canPay({money = {amount = total, canBeNegative = false}}) then
+  local price = { money = { amount = total, canBeNegative = false } }
+  local reason = tuningShopSpendReason()
+  if total > 0 and not overhaul_career_economy_payment.canPay(price, nil, reason) then
     guihooks.trigger('toastrMsg', {type = "error", title = "Not enough money", msg = "You cannot afford this tune."})
     return {success = false, reason = "insufficient_funds"}
   end
@@ -194,7 +206,9 @@ local function applyShopping()
   local checkout = require("overhaul/lib/checkout/operations")
   local operation = checkout.begin("tuning", {amount = total, target = {inventoryId = inventoryId}})
   checkout.settle(operation, function()
-    checkout.money.execute(overhaul_career_economy_playerAttributes.addAttributes, {money=-total}, {category = "purchase", finance = {vehicleId = inventoryId}, tags={"tuning", "buying"}, label = "ui.career.tuning.tunedVehicle"})
+    if total > 0 then
+      checkout.money.execute(overhaul_career_economy_payment.pay, price, reason)
+    end
   end)
 
   -- The live inventory config is also the dyno's temporary hub config. Mark
@@ -634,7 +648,11 @@ end
 
 local function sendShoppingCartToUI(shoppingCartUI)
   local shoppingData = {shoppingCart = shoppingCartUI}
-  shoppingData.playerMoney = overhaul_career_economy_playerAttributes.getAttributeValue("money")
+  -- Affordability gate uses Spendable for the shops bucket (Wallet + shops auto-pay checking).
+  -- Prefer spendableMoney; dual-write legacy playerMoney until Vue carts read spendableMoney only.
+  local tuningSpendable = overhaul_career_economy_payment.getSpendableMoney(tuningShopSpendReason())
+  shoppingData.spendableMoney = tuningSpendable
+  shoppingData.playerMoney = tuningSpendable -- deprecated alias of spendableMoney
   guihooks.trigger('sendTuningShoppingData', shoppingData)
 end
 

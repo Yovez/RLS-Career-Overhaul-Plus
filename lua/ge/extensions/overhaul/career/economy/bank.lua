@@ -399,8 +399,10 @@ end
 
 local function payInitialDeposit(amount)
   if amount <= 0 then return true end
-  if not overhaul_career_economy_payment.canPay(initialDepositPrice(amount)) then return false end
-  overhaul_career_economy_payment.pay(initialDepositPrice(amount), {label = "Bank deposit", category = "transfer"})
+  -- Transfer reason keeps canPay/pay on Wallet only (no auto-pay checking / Spendable).
+  local reason = {label = "Bank deposit", category = "transfer"}
+  if not overhaul_career_economy_payment.canPay(initialDepositPrice(amount), nil, reason) then return false end
+  overhaul_career_economy_payment.pay(initialDepositPrice(amount), reason)
   return true
 end
 
@@ -412,7 +414,9 @@ local function createAccount(name, accountType, initialDeposit)
     accountType = "checking"
   end
 
-  local walletBalance = overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
+  local payment = overhaul_career_economy_payment
+  local walletBalance = (payment and payment.getWalletMoney and payment.getWalletMoney())
+    or (overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0)
   initialDeposit = initialDeposit or 0
   initialDeposit = math.max(0, math.min(initialDeposit, walletBalance))
 
@@ -669,31 +673,32 @@ local function deposit(accountId, amount)
     return false
   end
 
-  local walletBalance = overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
+  local payment = overhaul_career_economy_payment
+  local walletBalance = (payment and payment.getWalletMoney and payment.getWalletMoney())
+    or (overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0)
   amount = math.min(amount, walletBalance)
 
   if amount <= 0 then
     return false
   end
 
-  if not overhaul_career_economy_payment.canPay({
+  -- Same transfer reason on canPay and pay so auto-pay checking never inflates deposit capacity.
+  local reason = {
+    label = "Bank deposit",
+    category = "transfer"
+  }
+  local price = {
     money = {
       amount = amount,
       canBeNegative = false
     }
-  }) then
+  }
+
+  if not payment.canPay(price, nil, reason) then
     return false
   end
 
-  if not overhaul_career_economy_payment.pay({
-    money = {
-      amount = amount,
-      canBeNegative = false
-    }
-  }, {
-    label = "Bank deposit",
-    category = "transfer"
-  }) then
+  if not payment.pay(price, reason) then
     return false
   end
 
@@ -1145,6 +1150,8 @@ function M.setBalanceRules(accountId, rules)
 end
 
 M.resolvePayAccount = bankAutomation.resolvePayAccount
+M.getAutoPayBalance = bankAutomation.getAutoPayBalance
+M.getSpendableMoney = bankAutomation.getSpendableMoney
 M.maybeAutoDeposit = bankAutomation.maybeAutoDeposit
 M.evaluateBalanceRules = bankAutomation.evaluateBalanceRules
 M.evaluateAutoInvest = bankAutomation.evaluateAutoInvest

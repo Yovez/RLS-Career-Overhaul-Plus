@@ -98,8 +98,29 @@ local function buildVehicleSummary(inventoryId)
   }
 end
 
-local function getPlayerMoney()
+local function repairPayReason(inventoryId)
+  return require("overhaul/lib/finance/metadata").tag(
+    {label = "Roadside repair: id " .. tostring(inventoryId)},
+    "repair",
+    {vehicleId = inventoryId}
+  )
+end
+
+-- Spendable for repairs (Wallet + repairs auto-pay checking when claimed).
+local function getRepairSpendable(inventoryId)
+  local payment = overhaul_career_economy_payment
+  if payment and payment.getSpendableMoney then
+    return payment.getSpendableMoney(repairPayReason(inventoryId)) or 0
+  end
   return overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
+end
+
+local function canAffordRepair(cost, inventoryId)
+  local payment = overhaul_career_economy_payment
+  if payment and payment.canPay then
+    return payment.canPay({money = {amount = cost, canBeNegative = false}}, nil, repairPayReason(inventoryId))
+  end
+  return getRepairSpendable(inventoryId) >= cost
 end
 
 local function isMaintenanceEnabled()
@@ -157,7 +178,7 @@ local function buildRepairData(inventoryId)
     baseCost = baseCost,
     laborMultiplier = laborMult,
     totalCost = adjustedCost,
-    canAfford = getPlayerMoney() >= adjustedCost,
+    canAfford = canAffordRepair(adjustedCost, inventoryId),
     hasTireDamage = assessment.hasTireDamage == true,
     hasFiniteDamage = assessment.hasFiniteDamage == true,
     hasBrokenParts = assessment.hasBrokenParts == true,
@@ -240,7 +261,7 @@ local function buildUiData()
     spotName = spotCfg.name,
     vehicle = vehicleSummary,
     services = services,
-    playerMoney = getPlayerMoney(),
+    playerMoney = getRepairSpendable(activeInventoryId),
     laborMultiplier = tonumber(spotCfg.laborMultiplier) or 1.25,
     repairState = repairState.inventoryId == tostring(activeInventoryId) and repairState or {status = 'idle'},
   }
@@ -325,7 +346,7 @@ local function performRepair()
   if cost <= 0 then
     return {ok = false, message = "Nothing to repair."}
   end
-  if getPlayerMoney() < cost then
+  if not canAffordRepair(cost, inventoryId) then
     return {ok = false, message = "Not enough money."}
   end
 
@@ -342,7 +363,7 @@ local function performRepair()
   end
   local operation = {elapsed = 0}
   repairOperation = operation
-  local paid = overhaul_career_economy_payment.pay({money = {amount = cost, canBeNegative = false}}, require("overhaul/lib/finance/metadata").tag({label = "Roadside repair: id " .. tostring(inventoryId)}, "repair", {vehicleId = inventoryId}))
+  local paid = overhaul_career_economy_payment.pay({money = {amount = cost, canBeNegative = false}}, repairPayReason(inventoryId))
   if not paid then
     repairOperation = nil
     return {ok = false, message = "Not enough money."}

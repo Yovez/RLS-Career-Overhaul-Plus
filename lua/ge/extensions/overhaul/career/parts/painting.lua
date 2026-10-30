@@ -373,6 +373,16 @@ local function settlePaintPurchase(operation, charge)
   return session.state == "committed"
 end
 
+-- Shops spend reason: maps to shops bucket (not vehicles), even with vehicleId ledger context.
+local function paintingShopSpendReason(targetInventoryId)
+  return {
+    category = "purchase",
+    finance = { vehicleId = targetInventoryId or inventoryId },
+    label = _tr("ui.career.painting.payment.repaintedVehicle"),
+    tags = { "vehiclePainting", "buying" },
+  }
+end
+
 local function apply()
   if not session or session.state ~= "preview" or session.capturePending or not chosenPaints then return false end
   local price = getTotalPrice(chosenPackage)
@@ -424,10 +434,11 @@ local function apply()
     close()
     return
   end
-  if not overhaul_career_economy_payment.canPay(price) then return end
+  local reason = paintingShopSpendReason(inventoryId)
+  if not overhaul_career_economy_payment.canPay(price, nil, reason) then return end
   local operation = checkout.begin("painting", {amount = price and price.money and price.money.amount, target = {inventoryId = inventoryId}})
   local paid = settlePaintPurchase(operation, function()
-    return checkout.money.execute(overhaul_career_economy_payment.pay, price, {category = "purchase", finance = {vehicleId = inventoryId}, label = _tr("ui.career.painting.payment.repaintedVehicle"), tags = {"vehiclePainting", "buying"}})
+    return checkout.money.execute(overhaul_career_economy_payment.pay, price, reason)
   end)
   if not paid then return false end
   Engine.Audio.playOnce('AudioGui', 'event:>UI>Career>Buy_01')
@@ -504,7 +515,7 @@ local function sendShoppingCartData(package)
   if businessCtx then
     data.canPay = businessCanAfford(data.totalPrice and data.totalPrice.money and data.totalPrice.money.amount or 0)
   else
-    data.canPay = overhaul_career_economy_payment.canPay(data.totalPrice)
+    data.canPay = overhaul_career_economy_payment.canPay(data.totalPrice, nil, paintingShopSpendReason(inventoryId))
   end
   guihooks.trigger("sendPaintingShoppingCartData", data)
 end

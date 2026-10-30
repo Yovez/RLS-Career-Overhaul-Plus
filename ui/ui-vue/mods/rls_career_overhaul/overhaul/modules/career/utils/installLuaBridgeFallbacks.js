@@ -127,6 +127,8 @@ const OVERHAUL_ARGUMENT_TYPES = {
   "overhaul_career_market_vehicleRentals.getPriceGuidance": ["Number", "Number"],
   "overhaul_career_market_vehicleRentals.getListingOffersData": ["Number"],
   "overhaul_career_economy_playerAttributes.getFinancialHistoryView": ["Object"],
+  "overhaul_career_economy_payment.getSpendableMoney": ["Object"],
+  "overhaul_career_economy_payment.getWalletMoney": [],
   "overhaul_career_career.createOrLoadCareerAndStart": ["String", "Any", "Object"],
   "overhaul_career_career.getSaveFoldersForProfile": ["String"],
   "overhaul_career_garage_computer.computerButtonCallback": ["String", "Any"],

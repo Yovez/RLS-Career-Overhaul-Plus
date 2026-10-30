@@ -102,9 +102,10 @@ function partFactory.new(inputs)
     end
 
     local formattedPrice = {money = {amount = resetCost, canBeNegative = false}}
-    if overhaul_career_economy_payment.canPay(formattedPrice) then
+    local reason = {category = "insurance", finance = {vehicleRelated = false}, label="Driver score reset"}
+    if overhaul_career_economy_payment.canPay(formattedPrice, nil, reason) then
       local oldScore = insuranceState.plDriverScore
-      overhaul_career_economy_payment.pay(formattedPrice, {category = "insurance", finance = {vehicleRelated = false}, label="Driver score reset"})
+      overhaul_career_economy_payment.pay(formattedPrice, reason)
       insuranceState.plDriverScore = defaultDriverScore
       overhaul_career_repair_insuranceHistory.addToPlHistory({
         type = "driverScoreReset",
@@ -159,8 +160,9 @@ function partFactory.new(inputs)
   end
 
   local function saveNewInsuranceCoverageOptions(insuranceId, newCoverageOptions)
-    if overhaul_career_economy_payment.canPay({money = {amount = availableInsurances[insuranceId].paperworkFees, canBeNegative = false}}) then
-      overhaul_career_economy_payment.pay({money = {amount = availableInsurances[insuranceId].paperworkFees, canBeNegative = false}}, {category = "insurance", finance = {vehicleRelated = false}, label="Insurance coverage options changed"})
+    local reason = {category = "insurance", finance = {vehicleRelated = false}, label="Insurance coverage options changed"}
+    if overhaul_career_economy_payment.canPay({money = {amount = availableInsurances[insuranceId].paperworkFees, canBeNegative = false}}, nil, reason) then
+      overhaul_career_economy_payment.pay({money = {amount = availableInsurances[insuranceId].paperworkFees, canBeNegative = false}}, reason)
       gameplay_achievement.unlockAchievement("POLICY_REVIEW")
 
       -- check if roadsideAssistance was changed
@@ -182,8 +184,9 @@ function partFactory.new(inputs)
   end
 
   local function saveNewVehicleCoverageOptions(vehicleId, newCoverageOptions)
-    if overhaul_career_economy_payment.canPay({money = {amount = availableInsurances[insuranceState.invVehs[vehicleId].insuranceId].paperworkFees, canBeNegative = false}}) then
-      overhaul_career_economy_payment.pay({money = {amount = availableInsurances[insuranceState.invVehs[vehicleId].insuranceId].paperworkFees, canBeNegative = false}}, {category = "insurance", finance = {vehicleId = vehicleId}, label="Vehicle coverage options changed"})
+    local reason = {category = "insurance", finance = {vehicleId = vehicleId}, label="Vehicle coverage options changed"}
+    if overhaul_career_economy_payment.canPay({money = {amount = availableInsurances[insuranceState.invVehs[vehicleId].insuranceId].paperworkFees, canBeNegative = false}}, nil, reason) then
+      overhaul_career_economy_payment.pay({money = {amount = availableInsurances[insuranceState.invVehs[vehicleId].insuranceId].paperworkFees, canBeNegative = false}}, reason)
       insuranceState.invVehs[vehicleId].insuranceData.coverageOptionsData.currentCoverageOptions = newCoverageOptions
       overhaul_career_ui_log.addLog(string.format("Saved coverage options for vehicle %s on insurance %s, paperwork fee %.2f",
         tostring(vehicleId), M.getInsuranceName(insuranceState.invVehs[vehicleId].insuranceId),

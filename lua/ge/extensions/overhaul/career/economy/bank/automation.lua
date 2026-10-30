@@ -124,7 +124,9 @@ function M.spendBucket(reason)
   if category == "service" then return "services" end
   if category == "property" then return "property" end
   if category == "purchase" then
-    if finance.vehicleId or tagSet.vehicleBought or tagSet.buying or tagSet.vehicle then
+    -- Vehicle purchases only: vehicleBought / vehicle tags. Generic "buying" and
+    -- finance.vehicleId are used by parts/paint/tune ledger reasons and must map to shops.
+    if tagSet.vehicleBought or tagSet.vehicle then
       return "vehicles"
     end
     return "shops"
@@ -361,21 +363,46 @@ function M.setBalanceRules(accountId, rules)
   return { ok = true, automation = M.getAccountAutomation(accountId) }
 end
 
+--- Checking account claimed for this spend bucket, if auto-pay is enabled (ignores balance).
+local function resolvePayAccountId(reason)
+  local bucket = M.spendBucket(reason)
+  if not bucket then return nil, nil end
+  local accountId = state.payClaims[bucket]
+  if not accountId then return nil, bucket end
+  local cfg = state.accounts[accountId]
+  if not cfg or not cfg.autoPayEnabled or not cfg.autoPay[bucket] then return nil, bucket end
+  local account = getAccount(accountId)
+  if not isChecking(account) then return nil, bucket end
+  return accountId, bucket
+end
+
 --- Resolve which checking account should pay for this spend, if any.
 function M.resolvePayAccount(reason, amount)
   amount = tonumber(amount) or 0
-  local bucket = M.spendBucket(reason)
-  if not bucket then return nil end
-  local accountId = state.payClaims[bucket]
+  local accountId = resolvePayAccountId(reason)
   if not accountId then return nil end
-  local cfg = state.accounts[accountId]
-  if not cfg or not cfg.autoPayEnabled or not cfg.autoPay[bucket] then return nil end
   local account = getAccount(accountId)
-  if not isChecking(account) then return nil end
   if amount > 0 and (account.balance or 0) + 0.0001 < amount then
     return nil -- fall back to wallet
   end
   return accountId
+end
+
+--- Balance on the auto-pay checking account for this reason (0 if none / not enabled).
+function M.getAutoPayBalance(reason)
+  local accountId = resolvePayAccountId(reason)
+  if not accountId then return 0 end
+  local account = getAccount(accountId)
+  return math.max(0, tonumber(account and account.balance) or 0)
+end
+
+--- Wallet + auto-pay checking for this category (checking spends first; wallet covers the rest).
+function M.getSpendableMoney(reason)
+  local wallet = 0
+  if overhaul_career_economy_playerAttributes and overhaul_career_economy_playerAttributes.getAttributeValue then
+    wallet = tonumber(overhaul_career_economy_playerAttributes.getAttributeValue("money")) or 0
+  end
+  return wallet + M.getAutoPayBalance(reason)
 end
 
 function M.maybeAutoDeposit(amount, reason)

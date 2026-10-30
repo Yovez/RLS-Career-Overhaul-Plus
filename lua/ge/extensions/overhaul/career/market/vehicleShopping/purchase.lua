@@ -106,13 +106,19 @@ function M.new(inputs)
   local function canAffordMoney(amount)
     if overhaul_career_economy_cheats.isCheatsMode() then return true end
     amount = tonumber(amount) or 0
-    local wallet = overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
-    if wallet >= amount then return true end
-    local bank = overhaul_career_economy_bank
-    if bank and bank.resolvePayAccount then
-      return bank.resolvePayAccount(vehiclePurchaseReason(nil, "vehicle afford check"), amount) ~= nil
+    local reason = vehiclePurchaseReason(nil, "vehicle afford check")
+    local payment = overhaul_career_economy_payment
+    -- Same facade gate as pay: canPay / getSpendableMoney for the vehicles purchase reason.
+    if payment and payment.canPay then
+      return payment.canPay({ money = { amount = amount } }, nil, reason) == true
     end
-    return false
+    if payment and payment.getSpendableMoney then
+      return payment.getSpendableMoney(reason) + 0.0001 >= amount
+    end
+    local wallet = overhaul_career_economy_playerAttributes.getAttributeValue("money") or 0
+    local bank = overhaul_career_economy_bank
+    local checking = (bank and bank.getAutoPayBalance and bank.getAutoPayBalance(reason)) or 0
+    return wallet + checking + 0.0001 >= amount
   end
 
   local function canAffordAttemptPrice()

@@ -16,18 +16,23 @@ Where major player-facing systems live. Paths are relative to repo root unless n
 
 ## Economy & finance
 
+Glossary: **Payment Domain**, **Wallet**, **Account**, **Spendable** — see root `GLOSSARY.md`. Payment Domain is a Plus **Claimed Domain** (Plus Wins / Cherry-pick-track; do not bulk-merge Upstream RLS over it).
+
 | System | GE | Notes |
 |--------|-----|-------|
-| Bank | `career/economy/bank.lua` | Vue bank modals |
-| Bank automation (**fork**) | `career/economy/bank/automation.lua` | Auto-pay by category (wallet fallback), auto-deposit, balance sweeps, checking auto-invest (broker or tickers); UI on `PhoneBankAccount` / `BankAutomationPanel.vue` |
-| Stock market (**fork**) | `career/economy/stockMarket.lua` | Phone Stock Market; sector quotes + dividends; manual 0%; broker buy-only (balanced) with 5% sell fee on withdraw; save `economy.stockMarket` |
-| Loans / credit | `career/economy/loans.lua`, `credit.lua` | |
-| Payment / wages | `career/economy/payment*` | Routes spend through bank auto-pay when enabled |
+| **Payment Domain** (**Claimed Domain**, **fork**) | `career/economy/payment.lua` (+ `payment/`) | Plus-owned affordability and debit facade: `canPay`, `getSpendableMoney`, `pay`, `reward` / `payout`. Bank automation is a **feature of this domain**, not a separate Claimed Domain. Employment held-wage holders stay Glue until Employment is claimed. |
+| **Wallet** | `career/economy/playerAttributes.lua` | Cash-on-hand (`money` attribute); save `career/playerAttributes.json`. Not a bank Account. Deposit capacity and cash-on-hand UI must use Wallet, never Spendable. |
+| **Account** (bank) | `career/economy/bank.lua` | Checking/savings balances distinct from Wallet; Vue bank modals; save `career/rls_career/bank.json` (Accounts, pending transfers, transactions, automation). |
+| **Spendable** (derived) | `payment.getSpendableMoney` / `bank.getSpendableMoney` | Affordability for a purchase reason: Wallet + claimed auto-pay checking for that reason’s spend bucket. **Never persisted** as a third balance. |
+| Bank automation (Payment Domain feature, **fork**) | `career/economy/bank/automation.lua` | Auto-pay by spend bucket (checking then Wallet), auto-deposit, balance sweeps, checking auto-invest (broker or tickers); UI on `PhoneBankAccount` / `BankAutomationPanel.vue`. Embedded under `bank.json` → `automation`. |
+| Stock market (**fork**) | `career/economy/stockMarket.lua` | Phone Stock Market; sector quotes + dividends; manual 0%; broker buy-only (balanced) with 5% sell fee on withdraw; save `economy.stockMarket`. Buys/deposits call Payment Domain (`stocks` bucket). |
+| Loans / credit | `career/economy/loans.lua`, `credit.lua` | Call Payment Domain for money movement; not redesigned by the Payment claim. |
 | Global economy / heat | `globalEconomy.lua`, `activityHeat.lua` | Hooks stock quotes each economy tick |
 | Difficulty / XP / economy adjusters | `difficultyMode.lua`, `*AdjusterPolicy.lua`, `economyAdjuster.lua` | |
-| Player attributes / skills XP | `playerAttributes*` | |
+| Player attributes / skills XP | `playerAttributes*` | Includes Wallet; other attributes unchanged by Payment Domain |
 | Cheats / pause time | `cheats.lua`, `pauseTime.lua` | |
-| Wallet / ledger helpers | `lib/ledger/`, `lib/finance/` | UI wallet tile + history |
+| Ledger / finance helpers | `lib/ledger/`, `lib/finance/` | UI wallet tile + history (Wallet ledger truth, not Spendable) |
+| Best-effort Import / money conservation | `shell/saveImport/` (`prepare.lua` `sumTotals` / `assertConserved`) | Import conserves Wallet + Accounts + pending transfers + known employment escrow (+ savings interest in the import check). Offline verify: `scripts/payment-save-conservation/`. |
 
 Gameplay numbers: `gameplay/overhaul/economy/` (incl. `stocks.json`), `finance/`.
 

@@ -149,9 +149,13 @@ local function moneyCost(amount)
   return { money = { amount = amount, canBeNegative = false } }
 end
 
+local function travelReason(label)
+  return require("overhaul/lib/finance/metadata").tag({ label = label or "Fast travel" }, "service", {vehicleRelated = false})
+end
+
 local function canPay(amount)
   if amount <= 0 then return true end
-  return overhaul_career_economy_payment.canPay(moneyCost(amount))
+  return overhaul_career_economy_payment.canPay(moneyCost(amount), nil, travelReason())
 end
 
 -- Menu payload, payment and teleport --------------------------------------------------------------
@@ -187,8 +191,9 @@ end
 
 local function pay(amount, label)
   if amount <= 0 then return true end
-  if not canPay(amount) then return false end
-  overhaul_career_economy_payment.pay(moneyCost(amount), require("overhaul/lib/finance/metadata").tag({ label = label or "Fast travel" }, "service", {vehicleRelated = false}))
+  local reason = travelReason(label)
+  if not overhaul_career_economy_payment.canPay(moneyCost(amount), nil, reason) then return false end
+  overhaul_career_economy_payment.pay(moneyCost(amount), reason)
   return true
 end
 

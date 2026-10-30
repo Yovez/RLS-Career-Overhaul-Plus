@@ -136,7 +136,11 @@ function partFactory.new(inputs)
         if data.currentInsuranceId == insuranceInfo.id then
           sanitizedData.amountDue = 0
         end
-        sanitizedData.canPay = overhaul_career_economy_payment.canPay({money = {amount = sanitizedData.amountDue, canBeNegative = false}})
+        sanitizedData.canPay = overhaul_career_economy_payment.canPay(
+          {money = {amount = sanitizedData.amountDue, canBeNegative = false}},
+          nil,
+          {category = "insurance", finance = {vehicleId = context.invVehId}}
+        )
       end
 
       table.insert(data.applicableInsurancesData, sanitizedData)

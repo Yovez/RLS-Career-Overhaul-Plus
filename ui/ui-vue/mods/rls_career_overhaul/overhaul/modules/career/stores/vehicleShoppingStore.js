@@ -78,13 +78,16 @@ function createFilterMatching({ filters, searchQuery, sortField, sortDirection }
 
 // Which listings the shop shows: unsold stock, sold history and the by-dealer grouping, plus the spend cap they respect.
 function createListingViews({ vehicleShoppingData, filters, searchQuery }, { applyFiltersAndSearch, sortComparator }) {
-  /** Personal wallet or team business balance — whichever applies to the active shopping context. */
+  /** Personal Spendable (Wallet + vehicles auto-pay checking) or team business balance — not Wallet alone. */
   const getFilterSpendCap = () => {
     const d = vehicleShoppingData.value
     if (d?.racingTeamBusinessMoney != null && Number.isFinite(Number(d.racingTeamBusinessMoney))) {
       return Number(d.racingTeamBusinessMoney) || 0
     }
-    return Number(d?.playerAttributes?.money?.value ?? d?.playerAttributes?.money ?? 0) || 0
+    const spendable = Number(d?.spendableMoney)
+    if (Number.isFinite(spendable)) return spendable
+    // playerAttributes.money is Wallet truth; without spendableMoney, filters stay Wallet-only.
+    return Number(d?.walletMoney ?? d?.playerAttributes?.money?.value ?? d?.playerAttributes?.money ?? 0) || 0
   }
 
   // Helper function to check if a dealer is hidden

@@ -190,14 +190,22 @@ const matchCount = computed(() =>
   typeof props.matchCount === "number" ? props.matchCount : (vehicleShoppingStore?.filteredVehicles || []).length
 )
 
-// Personal wallet from store (nil in payload during racing-team shop; filter row uses filterBudgetMoney there).
-const playerMoney = computed(() => Number((vehicleShoppingStore?.vehicleShoppingData?.playerAttributes?.money && (vehicleShoppingStore.vehicleShoppingData.playerAttributes.money.value ?? vehicleShoppingStore.vehicleShoppingData.playerAttributes.money)) || 0))
+// Wallet (cash-on-hand) from store — not Spendable. Nil during racing-team shop.
+const playerMoney = computed(() => {
+  const d = vehicleShoppingStore?.vehicleShoppingData
+  const wallet = Number(d?.walletMoney)
+  if (Number.isFinite(wallet)) return wallet
+  return Number((d?.playerAttributes?.money && (d.playerAttributes.money.value ?? d.playerAttributes.money)) || 0)
+})
 
+// "Can afford" budget is vehicles Spendable (or team balance), not Wallet.
 const filterBudgetMoney = computed(() => {
   if (racingTeamVehicleShop.value) {
     const v = vehicleShoppingStore?.vehicleShoppingData?.racingTeamBusinessMoney
     return Number.isFinite(Number(v)) ? Number(v) : 0
   }
+  const spendable = Number(vehicleShoppingStore?.vehicleShoppingData?.spendableMoney)
+  if (Number.isFinite(spendable)) return spendable
   return playerMoney.value
 })
 

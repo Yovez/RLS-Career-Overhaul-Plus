@@ -26,10 +26,15 @@ function partFactory.new(inputs)
       return true
     end
     local price = {money = {amount = amount, canBeNegative = false}}
-    if not overhaul_career_economy_payment.canPay(price) then
+    local reason = require("overhaul/lib/finance/metadata").tag(
+      {label = "Fresh replacement tires", tags = {"maintenance", "tires", "buying"}},
+      "repair",
+      {vehicleId = paymentContext and paymentContext.inventoryId}
+    )
+    if not overhaul_career_economy_payment.canPay(price, nil, reason) then
       return false, "Not enough money."
     end
-    if not overhaul_career_economy_payment.pay(price, require("overhaul/lib/finance/metadata").tag({label = "Fresh replacement tires", tags = {"maintenance", "tires", "buying"}}, "repair", {vehicleId = paymentContext and paymentContext.inventoryId})) then
+    if not overhaul_career_economy_payment.pay(price, reason) then
       return false, "Payment failed."
     end
     return true

@@ -111,12 +111,33 @@ local function getCurrentVehicleData()
   return currentVehicleId and overhaul_career_garage_inventory.getVehicles()[currentVehicleId]
 end
 
+-- Player fuel debit reason: maps to the fuel spend bucket for Payment Domain auto-pay.
+local function fuelPayReason(currentVehicle)
+  return {
+    category = "fuel",
+    finance = {
+      vehicleId = careerFuelContext.resolvePlayerInventoryId(),
+      vehicleName = currentVehicle and currentVehicle.niceName,
+      locationId = gasStation.facility.id, locationName = gasStation.facility.name,
+    },
+    tags = {"fuel", "buying"},
+    label = {
+      txt = "ui.career.attributeLog.refuelledAt",
+      context = { facilityName = gasStation.facility.name },
+    },
+  }
+end
+
 local function canPayPrice()
   if overallPrice <= 0 then return false end
   if careerFuelContext.isBusinessTransaction() then return true end -- RLS: billed to the business (personal fallback)
   local currentVehicle = getCurrentVehicleData()
   if currentVehicle and (currentVehicle.loanType == "work" or careerFuelContext.isEmployerVehicleOnShift(currentVehicle)) then return true end
-  return overallPrice <= overhaul_career_economy_playerAttributes.getAttributeValue("money")
+  return overhaul_career_economy_payment.canPay(
+    { money = { amount = overallPrice, canBeNegative = false } },
+    nil,
+    fuelPayReason(currentVehicle)
+  )
 end
 
 local function sendInitialDataToUI()
@@ -445,19 +466,11 @@ local function payPrice()
   elseif currentVehicle and (currentVehicle.loanType == "work" or careerFuelContext.isEmployerVehicleOnShift(currentVehicle)) then -- RLS
     ui_message(_tr("ui.career.refueling.paidByCompany"), 6, "refueling")
   else
-    overhaul_career_economy_playerAttributes.addAttributes({money=-overallPrice}, {
-      category = "fuel",
-      finance = {
-        vehicleId = careerFuelContext.resolvePlayerInventoryId(),
-        vehicleName = currentVehicle and currentVehicle.niceName,
-        locationId = gasStation.facility.id, locationName = gasStation.facility.name,
-      },
-      tags = {"fuel", "buying"},
-      label = {
-        txt = "ui.career.attributeLog.refuelledAt",
-        context = { facilityName = gasStation.facility.name },
-      },
-    })
+    -- Payment Domain facade: fuel bucket auto-pay / Wallet split (no wallet-only bypass).
+    overhaul_career_economy_payment.pay(
+      { money = { amount = overallPrice, canBeNegative = false } },
+      fuelPayReason(currentVehicle)
+    )
     gameplay_statistic.metricAdd("career/fuel/paidPrice.money", overallPrice)
   end
 
@@ -626,7 +639,7 @@ local function onUpdate(dtReal, dtSim)
     end
 
     imgui.Text(string.format("Overall Price: %.2f $", overallPrice))
-    if overallPrice <= overhaul_career_economy_playerAttributes.getAttributeValue("money") then
+    if canPayPrice() then
       if imgui.Button(string.format("Pay")) then
         payPrice()
       end
