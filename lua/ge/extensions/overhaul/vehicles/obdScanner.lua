@@ -112,10 +112,19 @@ local function licensePriceTable()
   return { money = { amount = PRO_TUNER_LICENSE_PRICE, canBeNegative = false } }
 end
 
+local function proTunerPurchaseReason()
+  return require("overhaul/lib/finance/metadata").tag(
+    { label = "Kapoow Racing PRO Tuner" },
+    "purchase",
+    { vehicleRelated = false }
+  )
+end
+
 local function canAffordProTunerLicense()
   if PRO_TUNER_LICENSE_PRICE <= 0 then return true end
   if overhaul_career_economy_payment and type(overhaul_career_economy_payment.canPay) == "function" then
-    return overhaul_career_economy_payment.canPay(licensePriceTable()) == true
+    -- Pass the purchase reason so checking auto-pay (Shops) counts toward affordability.
+    return overhaul_career_economy_payment.canPay(licensePriceTable(), nil, proTunerPurchaseReason()) == true
   end
   if overhaul_career_economy_playerAttributes and type(overhaul_career_economy_playerAttributes.getAttributeValue) == "function" then
     return (tonumber(overhaul_career_economy_playerAttributes.getAttributeValue("money")) or 0) >= PRO_TUNER_LICENSE_PRICE
@@ -205,12 +214,13 @@ local function purchaseProTunerLicense()
   if not canAffordProTunerLicense() then
     return getProTunerState()
   end
+  local reason = proTunerPurchaseReason()
   if overhaul_career_economy_payment and type(overhaul_career_economy_payment.pay) == "function" then
-    if overhaul_career_economy_payment.pay(licensePriceTable(), require("overhaul/lib/finance/metadata").tag({ label = "Kapoow Racing PRO Tuner" }, "purchase", {vehicleRelated = false})) ~= true then
+    if overhaul_career_economy_payment.pay(licensePriceTable(), reason) ~= true then
       return getProTunerState()
     end
   elseif overhaul_career_economy_playerAttributes and type(overhaul_career_economy_playerAttributes.addAttributes) == "function" then
-    overhaul_career_economy_playerAttributes.addAttributes({ money = -PRO_TUNER_LICENSE_PRICE }, require("overhaul/lib/finance/metadata").tag({ label = "Kapoow Racing PRO Tuner" }, "purchase", {vehicleRelated = false}))
+    overhaul_career_economy_playerAttributes.addAttributes({ money = -PRO_TUNER_LICENSE_PRICE }, reason)
   else
     return getProTunerState()
   end
