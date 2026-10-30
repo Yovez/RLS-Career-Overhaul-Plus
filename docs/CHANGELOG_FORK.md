@@ -16,6 +16,7 @@ Divergences in **RLS Career Overhaul Plus** (`Yovez/RLS-Career-Overhaul-Plus`) f
 - Keep this file + `docs/` fork-local when merging upstream.
 
 ### Upstream cherry-picks
+- **2.8.0 public hotfix:** Linux levelCache + save-import filename casing; repaired part condition sync; business-computer pull recovers missing cars; garage damage restore waits for settle; save failures surface and Ctrl+L soft-lock recovery; Racing Team spectate race start/AI; mod version `2.8.0_hotfix` (Plus keeps `source_sha` → upstream tip `e701d9e`). No Payment Domain changes ported (Plus Wins).
 - **#496:** Nil-safe vehicle performance after loaner/police shifts (big map / pause crash). Cash jobs require cash-capable loaners; bank-truck configs declare cash capacity.
 - **#495:** Taxi passenger-leg timing uses simulation `dt` (`rideElapsed`) so pause/menu time does not tank pace bonuses. Includes owned-car wheel data display fix from the same PR.
 - Skipped **#428** (vanilla `gameplay/taxi.lua`); Overhaul taxi path is covered by #495.
